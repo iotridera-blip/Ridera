@@ -1,0 +1,642 @@
+require("dotenv").config();
+
+const admin = require("firebase-admin");
+
+const serviceAccount = {
+    project_id: process.env.FB_PROJECT_ID,
+    private_key: process.env.FB_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    client_email: process.env.FB_CLIENT_EMAIL
+};
+
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+});
+
+const express = require("express");
+const cors = require("cors");
+const axios = require("axios");
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+const emailOtpStore = {};
+const phoneOtpStore = {};
+
+const forgotOtpStore = {};
+const changeOtpStore = {};
+
+// ---------------- OTP GENERATOR ----------------
+function generateOtp() {
+    return Math.floor(
+        100000 + Math.random() * 900000
+    ).toString();
+}
+
+// ---------------- SEND EMAIL OTP ----------------
+app.post("/send-email-otp", async (req, res) => {
+    
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({
+            success:false,
+            message:"Email required"
+        });
+    }
+
+    const otp = generateOtp();
+
+    emailOtpStore[email] = otp;
+
+    try {
+
+        await axios.post(
+            "https://api.brevo.com/v3/smtp/email",
+            {
+                sender:{
+                    name:"Ridera",
+                    email:"iot.ridera@gmail.com"
+                },
+
+                to:[{ email }],
+
+                subject:"Ridera Verification Code",
+
+                htmlContent:`
+                    <p>Your verification code is:</p>
+                    <h2 style="letter-spacing:3px;">
+                        ${otp}
+                    </h2>
+                    <p>If you did not request this code, please ignore this email.</p>
+                `
+            },
+            {
+                headers:{
+                    "api-key":process.env.BREVO_API_KEY,
+                    "Content-Type":"application/json"
+                },
+                timeout:10000
+            }
+        );
+
+        console.log("Verification code sent to:", email);
+
+        return res.json({
+            success:true
+        });
+
+    } catch(error){
+
+        console.log(
+            "BREVO ERROR:",
+            error.response?.data || error.message
+        );
+
+        delete emailOtpStore[email];
+
+        return res.status(500).json({
+            success:false,
+            message:"Verification code send failed"
+        });
+
+    }
+
+});
+
+
+// ---------------- VERIFY EMAIL OTP ----------------
+app.post("/verify-email-otp",(req,res)=>{
+
+    const { email, code } = req.body;
+
+    if(!email || !code){
+        return res.status(400).json({
+            verified:false
+        });
+    }
+
+    if(emailOtpStore[email] === code){
+
+        delete emailOtpStore[email];
+
+        return res.json({
+            verified:true
+        });
+    }
+
+    return res.json({
+        verified:false
+    });
+
+});
+
+
+// ---------------- SEND PHONE OTP (IPROG SMS) ----------------
+app.post("/send-phone-otp", async (req,res)=>{
+
+    const { phone } = req.body;
+
+    if(!phone){
+        return res.status(400).json({
+            success:false,
+            message:"Phone required"
+        });
+    }
+
+    const otp = generateOtp();
+
+    // store phone OTP
+    phoneOtpStore[phone] = otp;
+
+    try{
+
+        const message =
+            encodeURIComponent(
+                `Your Ridera Verification code is ${otp}`
+            );
+
+        const url =
+            `https://www.iprogsms.com/api/v1/sms_messages` +
+            `?api_token=${process.env.IPROG_API_TOKEN}` +
+            `&message=${message}` +
+            `&phone_number=${phone}`;
+
+        // same as your curl uses POST
+        await axios.post(
+            url,
+            null,
+            {
+                timeout:10000
+            }
+        );
+
+        console.log("SMS Verification code sent:", phone);
+
+        return res.json({
+            success:true
+        });
+
+    }catch(error){
+
+        console.log(
+            "IPROG SMS ERROR:",
+            error.response?.data || error.message
+        );
+
+        delete phoneOtpStore[phone];
+
+        return res.status(500).json({
+            success:false
+        });
+
+    }
+
+});
+
+
+// ---------------- VERIFY PHONE OTP ----------------
+app.post("/verify-phone-otp",(req,res)=>{
+
+    const { phone, code } = req.body;
+
+    if(!phone || !code){
+        return res.status(400).json({
+            verified:false
+        });
+    }
+
+    if(phoneOtpStore[phone] === code){
+
+        delete phoneOtpStore[phone];
+
+        return res.json({
+            verified:true
+        });
+    }
+
+    return res.json({
+        verified:false
+    });
+
+});
+
+// ---------------- SEND FORGOT PASSWORD OTP ----------------
+app.post("/send-forgot-otp", async (req, res) => {
+    
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({
+            success:false,
+            message:"Email required"
+        });
+    }
+
+    const otp = generateOtp();
+
+    forgotOtpStore[email] = otp;
+
+    try {
+
+        await axios.post(
+            "https://api.brevo.com/v3/smtp/email",
+            {
+                sender:{
+                    name:"Ridera",
+                    email:"iot.ridera@gmail.com"
+                },
+
+                to:[{ email }],
+
+                subject:"Ridera Password Reset Code",
+
+                htmlContent:`
+                    <p>Your password reset code is:</p>
+                    <h2 style="letter-spacing:3px;">
+                        ${otp}
+                    </h2>
+                    <p>If you did not request this code, please ignore this email.</p>
+                `
+            },
+            {
+                headers:{
+                    "api-key":process.env.BREVO_API_KEY,
+                    "Content-Type":"application/json"
+                },
+                timeout:10000
+            }
+        );
+
+        console.log("Password reset code sent to:", email);
+
+        return res.json({
+            success:true
+        });
+
+    } catch(error){
+
+        console.log(
+            "BREVO ERROR:",
+            error.response?.data || error.message
+        );
+
+        delete forgotOtpStore[email];
+
+        return res.status(500).json({
+            success:false,
+            message:"Password reset code send failed"
+        });
+
+    }
+
+});
+
+
+// ---------------- VERIFY FORGOT PASSWORD OTP ----------------
+app.post("/verify-forgot-otp",(req,res)=>{
+
+    const { email, code } = req.body;
+
+    if(!email || !code){
+        return res.status(400).json({
+            verified:false
+        });
+    }
+
+    if(forgotOtpStore[email] === code){
+
+        delete forgotOtpStore[email];
+
+        return res.json({
+            verified:true
+        });
+    }
+
+    return res.json({
+        verified:false
+    });
+
+});
+
+// ---------------- RESET PASSWORD --------------
+app.post("/reset-password", async (req, res) => {
+    const { email, newPassword } = req.body;
+
+    if (!email || !newPassword) {
+        return res.status(400).json({
+            success: false,
+            message: "Missing fields"
+        });
+    }
+
+    try {
+        // TODO: Update password
+        const user = await admin.auth().getUserByEmail(email);
+
+        await admin.auth().updateUser(user.uid, {
+            password: newPassword
+        });
+        
+        console.log("Reset password for:", email);
+
+        // send email (success message)
+        await axios.post(
+            "https://api.brevo.com/v3/smtp/email",
+            {
+                sender: {
+                    name: "Ridera",
+                    email: "iot.ridera@gmail.com"
+                },
+                to: [{ email }],
+                subject: "Ridera Password Updated",
+                htmlContent: `
+                    <p>Your password has been successfully updated.</p>
+                    <p>If this wasn’t you, please secure your account immediately.</p>
+                `
+            },
+            {
+                headers: {
+                    "api-key": process.env.BREVO_API_KEY,
+                    "Content-Type": "application/json"
+                },
+                timeout: 10000
+            }
+        );
+
+        return res.json({
+            success: true,
+            message: "Password updated"
+        });
+
+    } catch (error) {
+
+        console.log(error.response?.data || error.message);
+        
+        return res.status(500).json({
+            success: false,
+            message: "Reset failed"
+        });
+    }
+
+});
+
+// ---------------- HEALTH CHECK ----------------
+
+app.get("/",(req,res)=>{
+    res.send("Ridera Auth Server Running...");
+});
+
+
+// ---------------- START SERVER ----------------
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT,()=>{
+
+    console.log(
+        "Server running on port " + PORT
+    );
+
+});
+
+/*
+const express = require("express");
+const cors = require("cors");
+const axios = require("axios");
+require("dotenv").config();
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+const otpStore = {};
+const phoneOtpStore = {};
+
+// ---------------- OTP GENERATOR ----------------
+
+function generateOtp() {
+    return Math.floor(
+        100000 + Math.random() * 900000
+    ).toString();
+}
+
+
+// ---------------- SEND OTP ----------------
+
+app.post("/send-otp", async (req, res) => {
+
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({
+            success:false,
+            message:"Email required"
+        });
+    }
+
+    const otp = generateOtp();
+
+    // save otp immediately
+    otpStore[email] = otp;
+
+    try {
+
+        await axios.post(
+            "https://api.brevo.com/v3/smtp/email",
+            {
+                sender:{
+                    name:"Ridera",
+                    email:"iot.ridera@gmail.com"
+                },
+
+                to:[{ email }],
+
+                subject:"Ridera OTP Code",
+
+                htmlContent:`
+                    <p>Your OTP code is:</p>
+                    <h2 style="letter-spacing:3px;">
+                        ${otp}
+                    </h2>
+                    <p>If you did not request this code,
+                    please ignore this email.</p>
+                `
+            },
+            {
+                headers:{
+                    "api-key":process.env.BREVO_API_KEY,
+                    "Content-Type":"application/json"
+                },
+
+                // NEW: prevents hanging forever
+                timeout:10000
+            }
+        );
+
+        console.log("OTP sent to:", email);
+
+        return res.json({
+            success:true
+        });
+
+    } catch(error){
+
+        console.log(
+            "BREVO ERROR:",
+            error.response?.data || error.message
+        );
+
+        // remove bad otp if email failed
+        delete otpStore[email];
+
+        return res.status(500).json({
+            success:false,
+            message:"OTP send failed"
+        });
+
+    }
+
+});
+
+
+// ---------------- VERIFY OTP ----------------
+
+app.post("/verify-otp",(req,res)=>{
+
+    const { email, code } = req.body;
+
+    if(!email || !code){
+        return res.status(400).json({
+            verified:false
+        });
+    }
+
+    if(otpStore[email] === code){
+
+        // one-time use only
+        delete otpStore[email];
+
+        return res.json({
+            verified:true
+        });
+    }
+
+    return res.json({
+        verified:false
+    });
+
+});
+
+// ---------------- SEND PHONE OTP (NEW) ----------------
+
+app.post("/send-phone-otp", async (req,res)=>{
+
+    const { phone } = req.body;
+
+    if(!phone){
+        return res.status(400).json({
+            success:false,
+            message:"Phone required"
+        });
+    }
+
+    const otp = generateOtp();
+
+    // store phone otp
+    phoneOtpStore[phone] = otp;
+
+    try{
+
+        await axios.post(
+            "https://api.brevo.com/v3/transactionalSMS/send",
+            {
+                sender:"Ridera",
+                recipient:phone, // format: +639xxxxxxxxx
+                content:`Your Ridera OTP code is ${otp}`,
+                type:"transactional"
+            },
+            {
+                headers:{
+                    "api-key":process.env.BREVO_API_KEY,
+                    "Content-Type":"application/json"
+                },
+                timeout:10000
+            }
+        );
+
+        console.log("SMS OTP sent:", phone);
+
+        return res.json({
+            success:true
+        });
+
+    }catch(error){
+
+        console.log(
+            "SMS ERROR:",
+            error.response?.data || error.message
+        );
+
+        delete phoneOtpStore[phone];
+
+        return res.status(500).json({
+            success:false
+        });
+
+    }
+
+});
+
+
+// ---------------- VERIFY PHONE OTP (NEW) ----------------
+
+app.post("/verify-phone-otp",(req,res)=>{
+
+    const { phone, code } = req.body;
+
+    if(!phone || !code){
+        return res.status(400).json({
+            verified:false
+        });
+    }
+
+    if(phoneOtpStore[phone] === code){
+
+        // one time use
+        delete phoneOtpStore[phone];
+
+        return res.json({
+            verified:true
+        });
+    }
+
+    return res.json({
+        verified:false
+    });
+
+});
+
+
+// ---------------- HEALTH CHECK ----------------
+// helps Render stay alive / test endpoint
+
+app.get("/",(req,res)=>{
+    res.send("Ridera OTP Server Running");
+});
+
+
+// ---------------- START SERVER ----------------
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT,()=>{
+
+    console.log(
+        "Server running on port " + PORT
+    );
+
+});
+*/
