@@ -3,13 +3,14 @@ require("dotenv").config();
 const admin = require("firebase-admin");
 
 const serviceAccount = {
-    project_id: process.env.FB_PROJECT_ID,
-    private_key: process.env.FB_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-    client_email: process.env.FB_CLIENT_EMAIL
+    projectId: process.env.FB_PROJECT_ID,
+    privateKey: process.env.FB_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    clientEmail: process.env.FB_CLIENT_EMAIL
 };
 
 admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
+    credential: admin.credential.cert(serviceAccount),
+    databaseURL: process.env.FB_DATABASE_URL
 });
 
 const express = require("express");
