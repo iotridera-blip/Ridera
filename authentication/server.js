@@ -404,14 +404,13 @@ app.post("/send-welcome-email", async (req, res) => {
                 to:[{ email }],
                 subject:"Welcome to Ridera",
                 htmlContent:`
-                    <h2>Welcome to Ridera, ${name}</h2>
+                    <p>Hello ${name},</p>
                     
                     <p>Your account has been successfully created.</p>
                     
-                    <p>Ridera is ready to connect to your device for real-time tracking and emergency response.</p>
+                    <p>Ridera is now ready to connect to your device for real-time tracking and emergency response.</p>
                     
                     <br/>
-                    
                     <p>You’re all set. Ride safe.</p>
                 `
             },
