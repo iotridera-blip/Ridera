@@ -48,7 +48,10 @@ app.post("/send-email-otp", async (req, res) => {
         });
     }
     const otp = generateOtp();
-    otpStore.email[email] = otp;
+    otpStore.email[email] = {
+        code: otp,
+        expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes
+    };
     try {
         await axios.post(
             "https://api.brevo.com/v3/smtp/email",
@@ -64,6 +67,7 @@ app.post("/send-email-otp", async (req, res) => {
                     <h2 style="letter-spacing:3px;">
                         ${otp}
                     </h2>
+                    <p>This code is valid for 5 minutes.</p>
                     <p>If you did not request this code, please ignore this email.</p>
                 `
             },
@@ -98,14 +102,33 @@ app.post("/verify-email-otp",(req,res)=>{
             verified:false
         });
     }
-    if(otpStore.email[email] === code){
-        delete otpStore.email[email];
+    const data = otpStore.email[email];
+    // otp not found
+    if (!data) {
         return res.json({
-            verified:true
+            verified: false,
+            message: "OTP not found"
         });
     }
+    // expired otp
+    if (Date.now() > data.expiresAt) {
+        delete otpStore.email[email];
+        return res.json({
+            verified: false,
+            message: "OTP expired"
+        });
+    }
+    // invalid otp
+    if (data.code !== code) {
+        return res.json({
+            verified: false,
+            message: "Invalid OTP"
+        });
+    }
+    // success
+    delete otpStore.email[email];
     return res.json({
-        verified:false
+        verified: true
     });
 });
 
