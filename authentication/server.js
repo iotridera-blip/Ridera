@@ -143,11 +143,14 @@ app.post("/send-phone-otp", async (req,res)=>{
         });
     }
     const otp = generateOtp();
-    otpStore.phone[phone] = otp;
+    otpStore.phone[email] = {
+        code: otp,
+        expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes
+    };
     try{
         const message =
             encodeURIComponent(
-                `Your Ridera Verification code is ${otp}`
+                `Your Ridera Verification code is ${otp}. This code is valid for 5 minutes.`
             );
         const url =
             `https://www.iprogsms.com/api/v1/sms_messages` +
