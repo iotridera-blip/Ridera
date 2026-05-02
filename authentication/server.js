@@ -510,7 +510,7 @@ app.post("/change-password", async (req, res) => {
         
         console.log("Password changed for:", email);
 
-        // send email (password changed message)
+        // send email (success message)
         await axios.post(
             "https://api.brevo.com/v3/smtp/email",
             {
@@ -540,8 +540,17 @@ app.post("/change-password", async (req, res) => {
         });
 
     } catch (error) {
-
         console.log(error.response?.data || error.message);
+
+        const msg = error.response?.data?.error?.message;
+
+        // invalid current password case
+        if (msg === "INVALID_LOGIN_CREDENTIALS" || msg === "INVALID_PASSWORD") {
+            return res.status(401).json({
+                success: false,
+                message: "Current password is invalid"
+            });
+        }
         
         return res.status(500).json({
             success: false,
