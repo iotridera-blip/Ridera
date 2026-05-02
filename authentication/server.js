@@ -382,6 +382,61 @@ app.post("/reset-password", async (req, res) => {
 
 });
 
+// ---------------- SEND WELCOME EMAIL ----------------
+app.post("/send-welcome-email", async (req, res) => {
+    const { email, name } = req.body;
+
+    if (!email || !name) {
+        return res.status(400).json({
+            success:false,
+            message:"Missing fields"
+        });
+    }
+    
+    try {
+        await axios.post(
+            "https://api.brevo.com/v3/smtp/email",
+            {
+                sender:{
+                    name:"Ridera",
+                    email:"iot.ridera@gmail.com"
+                },
+                to:[{ email }],
+                subject:"Welcome to Ridera",
+                htmlContent:`
+                    <h2>Welcome to Ridera, ${name}</h2>
+                    
+                    <p>Your account has been successfully created.</p>
+                    
+                    <p>Ridera is ready to connect to your device for real-time tracking and emergency response.</p>
+                    
+                    <br/>
+                    
+                    <p>You’re all set. Ride safe.</p>
+                `
+            },
+            {
+                headers:{
+                    "api-key":process.env.BREVO_API_KEY,
+                    "Content-Type":"application/json"
+                },
+                timeout:10000
+            }
+        );
+        console.log("Welcome sent to:", email);
+        return res.json({
+            success:true
+        });
+
+    } catch(error){
+        console.log("BREVO ERROR:", error.response?.data || error.message);
+        return res.status(500).json({
+            success:false,
+            message:"Welcome send failed"
+        });
+    }
+});
+
 // ---------------- HEALTH CHECK ----------------
 
 app.get("/",(req,res)=>{
@@ -394,7 +449,6 @@ app.get("/",(req,res)=>{
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT,()=>{
-
     console.log(
         "Server running on port " + PORT
     );
