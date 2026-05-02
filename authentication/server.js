@@ -21,11 +21,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const emailOtpStore = {};
-const phoneOtpStore = {};
-
-const forgotOtpStore = {};
-const changeOtpStore = {};
+const otpStore = {
+    email: {},
+    phone: {},
+    changeEmail: {},
+    changePhone: {},
+    forgotPassword: {},
+    changePassword: {},
+    deleteAccount: {}
+};
 
 // ---------------- OTP GENERATOR ----------------
 function generateOtp() {
@@ -36,22 +40,16 @@ function generateOtp() {
 
 // ---------------- SEND EMAIL OTP ----------------
 app.post("/send-email-otp", async (req, res) => {
-    
     const { email } = req.body;
-
     if (!email) {
         return res.status(400).json({
             success:false,
             message:"Email required"
         });
     }
-
     const otp = generateOtp();
-
-    emailOtpStore[email] = otp;
-
+    otpStore.email[email] = otp;
     try {
-
         await axios.post(
             "https://api.brevo.com/v3/smtp/email",
             {
@@ -59,11 +57,8 @@ app.post("/send-email-otp", async (req, res) => {
                     name:"Ridera",
                     email:"iot.ridera@gmail.com"
                 },
-
                 to:[{ email }],
-
                 subject:"Ridera Verification Code",
-
                 htmlContent:`
                     <p>Your verification code is:</p>
                     <h2 style="letter-spacing:3px;">
@@ -80,89 +75,62 @@ app.post("/send-email-otp", async (req, res) => {
                 timeout:10000
             }
         );
-
         console.log("Verification code sent to:", email);
-
         return res.json({
             success:true
         });
-
     } catch(error){
-
-        console.log(
-            "BREVO ERROR:",
-            error.response?.data || error.message
-        );
-
-        delete emailOtpStore[email];
-
+        console.log("BREVO ERROR:", error.response?.data || error.message);
+        delete otpStore.email[email];
         return res.status(500).json({
             success:false,
             message:"Verification code send failed"
         });
-
     }
-
 });
 
 
 // ---------------- VERIFY EMAIL OTP ----------------
 app.post("/verify-email-otp",(req,res)=>{
-
     const { email, code } = req.body;
-
     if(!email || !code){
         return res.status(400).json({
             verified:false
         });
     }
-
-    if(emailOtpStore[email] === code){
-
-        delete emailOtpStore[email];
-
+    if(otpStore.email[email] === code){
+        delete otpStore.email[email];
         return res.json({
             verified:true
         });
     }
-
     return res.json({
         verified:false
     });
-
 });
 
 
 // ---------------- SEND PHONE OTP (IPROG SMS) ----------------
 app.post("/send-phone-otp", async (req,res)=>{
-
     const { phone } = req.body;
-
     if(!phone){
         return res.status(400).json({
             success:false,
             message:"Phone required"
         });
     }
-
     const otp = generateOtp();
-
-    // store phone OTP
-    phoneOtpStore[phone] = otp;
-
+    otpStore.phone[phone] = otp;
     try{
-
         const message =
             encodeURIComponent(
                 `Your Ridera Verification code is ${otp}`
             );
-
         const url =
             `https://www.iprogsms.com/api/v1/sms_messages` +
             `?api_token=${process.env.IPROG_API_TOKEN}` +
             `&message=${message}` +
             `&phone_number=${phone}`;
-
         // same as your curl uses POST
         await axios.post(
             url,
@@ -171,75 +139,51 @@ app.post("/send-phone-otp", async (req,res)=>{
                 timeout:10000
             }
         );
-
         console.log("SMS Verification code sent:", phone);
-
         return res.json({
             success:true
         });
-
     }catch(error){
-
-        console.log(
-            "IPROG SMS ERROR:",
-            error.response?.data || error.message
-        );
-
-        delete phoneOtpStore[phone];
-
+        console.log("IPROG SMS ERROR:", error.response?.data || error.message);
+        delete otpStore.phone[phone];
         return res.status(500).json({
             success:false
         });
-
     }
-
 });
 
 
 // ---------------- VERIFY PHONE OTP ----------------
 app.post("/verify-phone-otp",(req,res)=>{
-
     const { phone, code } = req.body;
-
     if(!phone || !code){
         return res.status(400).json({
             verified:false
         });
     }
-
-    if(phoneOtpStore[phone] === code){
-
-        delete phoneOtpStore[phone];
-
+    if(otpStore.phone[phone] === code){
+        delete otpStore.phone[phone];
         return res.json({
             verified:true
         });
     }
-
     return res.json({
         verified:false
     });
-
 });
 
 // ---------------- SEND FORGOT PASSWORD OTP ----------------
-app.post("/send-forgot-otp", async (req, res) => {
-    
+app.post("/send-forgot-password-otp", async (req, res) => {
     const { email } = req.body;
-
     if (!email) {
         return res.status(400).json({
             success:false,
             message:"Email required"
         });
     }
-
     const otp = generateOtp();
-
-    forgotOtpStore[email] = otp;
-
+    otpStore.forgotPassword[email] = otp;
     try {
-
         await axios.post(
             "https://api.brevo.com/v3/smtp/email",
             {
@@ -247,11 +191,8 @@ app.post("/send-forgot-otp", async (req, res) => {
                     name:"Ridera",
                     email:"iot.ridera@gmail.com"
                 },
-
                 to:[{ email }],
-
                 subject:"Ridera Password Reset Code",
-
                 htmlContent:`
                     <p>Your password reset code is:</p>
                     <h2 style="letter-spacing:3px;">
@@ -268,79 +209,56 @@ app.post("/send-forgot-otp", async (req, res) => {
                 timeout:10000
             }
         );
-
         console.log("Password reset code sent to:", email);
-
         return res.json({
             success:true
         });
-
     } catch(error){
-
-        console.log(
-            "BREVO ERROR:",
-            error.response?.data || error.message
-        );
-
-        delete forgotOtpStore[email];
-
+        console.log("BREVO ERROR:", error.response?.data || error.message);
+        delete otpStore.forgotPassword[email];
         return res.status(500).json({
             success:false,
             message:"Password reset code send failed"
         });
-
     }
-
 });
 
 
 // ---------------- VERIFY FORGOT PASSWORD OTP ----------------
-app.post("/verify-forgot-otp",(req,res)=>{
-
+app.post("/verify-forgot-password-otp",(req,res)=>{
     const { email, code } = req.body;
-
     if(!email || !code){
         return res.status(400).json({
             verified:false
         });
     }
-
-    if(forgotOtpStore[email] === code){
-
-        delete forgotOtpStore[email];
-
+    if(otpStore.forgotPassword[email] === code){
+        delete otpStore.forgotPassword[email];
         return res.json({
             verified:true
         });
     }
-
     return res.json({
         verified:false
     });
-
 });
 
 // ---------------- RESET PASSWORD --------------
 app.post("/reset-password", async (req, res) => {
     const { email, newPassword } = req.body;
-
     if (!email || !newPassword) {
         return res.status(400).json({
             success: false,
             message: "Missing fields"
         });
     }
-
     try {
         // TODO: Update password
         const user = await admin.auth().getUserByEmail(email);
-
         await admin.auth().updateUser(user.uid, {
             password: newPassword
         });
-        
         console.log("Reset password for:", email);
-
         // send email (success message)
         await axios.post(
             "https://api.brevo.com/v3/smtp/email",
@@ -364,42 +282,31 @@ app.post("/reset-password", async (req, res) => {
                 timeout: 10000
             }
         );
-
         return res.json({
             success: true,
             message: "Password updated"
         });
-
     } catch (error) {
-
         console.log(error.response?.data || error.message);
-        
         return res.status(500).json({
             success: false,
             message: "Reset failed"
         });
     }
-
 });
 
 // ---------------- SEND CHANGE PASSWORD OTP ----------------
-app.post("/send-change-otp", async (req, res) => {
-    
+app.post("/send-change-password-otp", async (req, res) => {
     const { email } = req.body;
-
     if (!email) {
         return res.status(400).json({
             success:false,
             message:"Email required"
         });
     }
-
     const otp = generateOtp();
-
-    changeOtpStore[email] = otp;
-
+    otpStore.changePassword[email] = otp;
     try {
-
         await axios.post(
             "https://api.brevo.com/v3/smtp/email",
             {
@@ -407,11 +314,8 @@ app.post("/send-change-otp", async (req, res) => {
                     name:"Ridera",
                     email:"iot.ridera@gmail.com"
                 },
-
                 to:[{ email }],
-
                 subject:"Ridera Password Change Code",
-
                 htmlContent:`
                     <p>Your password change code is:</p>
                     <h2 style="letter-spacing:3px;">
@@ -428,68 +332,48 @@ app.post("/send-change-otp", async (req, res) => {
                 timeout:10000
             }
         );
-
         console.log("Password change code sent to:", email);
-
         return res.json({
             success:true
         });
-
     } catch(error){
-
-        console.log(
-            "BREVO ERROR:",
-            error.response?.data || error.message
-        );
-
-        delete changeOtpStore[email];
-
+        console.log("BREVO ERROR:", error.response?.data || error.message);
+        delete otpStore.changePassword[email];
         return res.status(500).json({
             success:false,
             message:"Password change code send failed"
         });
-
     }
-
 });
 
 // ---------------- VERIFY CHANGE PASSWORD OTP ----------------
-app.post("/verify-change-otp",(req,res)=>{
-
+app.post("/verify-change-password-otp",(req,res)=>{
     const { email, code } = req.body;
-
     if(!email || !code){
         return res.status(400).json({
             verified:false
         });
     }
-
-    if(changeOtpStore[email] === code){
-
-        delete changeOtpStore[email];
-
+    if(otpStore.changePassword[email] === code){
+        delete otpStore.changePassword[email];
         return res.json({
             verified:true
         });
     }
-
     return res.json({
         verified:false
     });
-
 });
 
 // ---------------- CHANGE PASSWORD --------------
 app.post("/change-password", async (req, res) => {
     const { email, currentPassword, newPassword } = req.body;
-
     if (!email || !currentPassword || !newPassword) {
         return res.status(400).json({
             success: false,
             message: "Missing fields"
         });
     }
-
     try {
         // TODO: Change password
         // verify current password
@@ -501,15 +385,11 @@ app.post("/change-password", async (req, res) => {
                 returnSecureToken: true
             }
         );
-        
         const user = await admin.auth().getUserByEmail(email);
-
         await admin.auth().updateUser(user.uid, {
             password: newPassword
         });
-        
         console.log("Password changed for:", email);
-
         // send email (success message)
         await axios.post(
             "https://api.brevo.com/v3/smtp/email",
@@ -533,17 +413,13 @@ app.post("/change-password", async (req, res) => {
                 timeout: 10000
             }
         );
-
         return res.json({
             success: true,
             message: "Password changed"
         });
-
     } catch (error) {
         console.log(error.response?.data || error.message);
-
         const msg = error.response?.data?.error?.message;
-
         // invalid current password case
         if (msg === "INVALID_LOGIN_CREDENTIALS" || msg === "INVALID_PASSWORD") {
             return res.status(401).json({
@@ -551,26 +427,22 @@ app.post("/change-password", async (req, res) => {
                 message: "Current password is invalid"
             });
         }
-        
         return res.status(500).json({
             success: false,
             message: "Change failed"
         });
     }
-
 });
 
 // ---------------- SEND WELCOME EMAIL ----------------
 app.post("/send-welcome-email", async (req, res) => {
     const { email, name } = req.body;
-
     if (!email || !name) {
         return res.status(400).json({
             success:false,
             message:"Missing fields"
         });
     }
-    
     try {
         await axios.post(
             "https://api.brevo.com/v3/smtp/email",
