@@ -382,6 +382,175 @@ app.post("/reset-password", async (req, res) => {
 
 });
 
+// ---------------- SEND CHANGE PASSWORD OTP ----------------
+app.post("/send-change-otp", async (req, res) => {
+    
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({
+            success:false,
+            message:"Email required"
+        });
+    }
+
+    const otp = generateOtp();
+
+    changeOtpStore[email] = otp;
+
+    try {
+
+        await axios.post(
+            "https://api.brevo.com/v3/smtp/email",
+            {
+                sender:{
+                    name:"Ridera",
+                    email:"iot.ridera@gmail.com"
+                },
+
+                to:[{ email }],
+
+                subject:"Ridera Password Change Code",
+
+                htmlContent:`
+                    <p>Your password change code is:</p>
+                    <h2 style="letter-spacing:3px;">
+                        ${otp}
+                    </h2>
+                    <p>If you did not request this code, please ignore this email.</p>
+                `
+            },
+            {
+                headers:{
+                    "api-key":process.env.BREVO_API_KEY,
+                    "Content-Type":"application/json"
+                },
+                timeout:10000
+            }
+        );
+
+        console.log("Password change code sent to:", email);
+
+        return res.json({
+            success:true
+        });
+
+    } catch(error){
+
+        console.log(
+            "BREVO ERROR:",
+            error.response?.data || error.message
+        );
+
+        delete changeOtpStore[email];
+
+        return res.status(500).json({
+            success:false,
+            message:"Password change code send failed"
+        });
+
+    }
+
+});
+
+// ---------------- VERIFY CHANGE PASSWORD OTP ----------------
+app.post("/verify-change-otp",(req,res)=>{
+
+    const { email, code } = req.body;
+
+    if(!email || !code){
+        return res.status(400).json({
+            verified:false
+        });
+    }
+
+    if(changeOtpStore[email] === code){
+
+        delete changeOtpStore[email];
+
+        return res.json({
+            verified:true
+        });
+    }
+
+    return res.json({
+        verified:false
+    });
+
+});
+
+// ---------------- CHANGE PASSWORD --------------
+app.post("/change-password", async (req, res) => {
+    const { email, currentPassword, newPassword } = req.body;
+
+    if (!email || !currentPassword || !newPassword) {
+        return res.status(400).json({
+            success: false,
+            message: "Missing fields"
+        });
+    }
+
+    try {
+        // TODO: Change password
+        // verify current password
+        await axios.post(
+            `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${process.env.FB_API_KEY}`,
+            {
+                email,
+                password: currentPassword,
+                returnSecureToken: true
+            }
+        );
+        
+        const user = await admin.auth().getUserByEmail(email);
+
+        await admin.auth().updateUser(user.uid, {
+            password: newPassword
+        });
+        
+        console.log("Password changed for:", email);
+
+        // send email (password changed message)
+        await axios.post(
+            "https://api.brevo.com/v3/smtp/email",
+            {
+                sender: {
+                    name: "Ridera",
+                    email: "iot.ridera@gmail.com"
+                },
+                to: [{ email }],
+                subject: "Ridera Password Changed",
+                htmlContent: `
+                    <p>Your account password has been successfully changed.</p>
+                    <p>If this wasn’t you, please secure your account immediately.</p>
+                `
+            },
+            {
+                headers: {
+                    "api-key": process.env.BREVO_API_KEY,
+                    "Content-Type": "application/json"
+                },
+                timeout: 10000
+            }
+        );
+
+        return res.json({
+            success: true,
+            message: "Password changed"
+        });
+
+    } catch (error) {
+
+        console.log(error.response?.data || error.message);
+        
+        return res.status(500).json({
+            success: false,
+            message: "Change failed"
+        });
+    }
+
+});
+
 // ---------------- SEND WELCOME EMAIL ----------------
 app.post("/send-welcome-email", async (req, res) => {
     const { email, name } = req.body;
