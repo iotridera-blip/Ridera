@@ -48,10 +48,11 @@ app.post("/send-email-otp", async (req, res) => {
         });
     }
     const otp = generateOtp();
-    otpStore.email[email] = {
+    const key = email.replace(/\./g, "_");
+    await admin.database().ref("otp/email/" + key).set({
         code: otp,
-        expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes
-    };
+        expiresAt: Date.now() + 5 * 60 * 1000
+    });
     try {
         await axios.post(
             "https://api.brevo.com/v3/smtp/email",
@@ -85,7 +86,7 @@ app.post("/send-email-otp", async (req, res) => {
         });
     } catch(error){
         console.log("BREVO ERROR:", error.response?.data || error.message);
-        delete otpStore.email[email];
+        await admin.database().ref("otp/email/" + key).remove();
         return res.status(500).json({
             success:false,
             message:"Verification code send failed"
@@ -95,38 +96,32 @@ app.post("/send-email-otp", async (req, res) => {
 
 
 // ---------------- VERIFY EMAIL OTP ----------------
-app.post("/verify-email-otp",(req,res)=>{
+app.post("/verify-email-otp", async (req,res)=>{
     const { email, code } = req.body;
     if(!email || !code){
         return res.status(400).json({
             verified:false
         });
     }
-    const data = otpStore.email[email];
-    // otp not found
-    if (!data) {
-        return res.json({
-            verified: false,
-            message: "OTP not found"
-        });
-    }
-    // expired otp
-    if (Date.now() > data.expiresAt) {
-        delete otpStore.email[email];
-        return res.json({
-            verified: false,
-            message: "OTP expired"
-        });
-    }
+    const key = email.replace(/\./g, "_");
+    const snap = await admin.database().ref("otp/email/" + key).get();
+    const data = snap.val();
     // invalid otp
-    if (data.code !== code) {
+    if (!data || data.code !== code) {
         return res.json({
             verified: false,
             message: "Invalid OTP"
         });
     }
+    // valid but expired 
+    if (Date.now() > data.expiresAt) {
+        return res.json({
+            verified: false,
+            message: "OTP expired"
+        });
+    }
     // success
-    delete otpStore.email[email];
+    await admin.database().ref("otp/email/" + key).remove();
     return res.json({
         verified: true
     });
@@ -187,14 +182,33 @@ app.post("/verify-phone-otp",(req,res)=>{
             verified:false
         });
     }
-    if(otpStore.phone[phone] === code){
-        delete otpStore.phone[phone];
+    const data = otpStore.phone[email];
+    // otp not found
+    if (!data) {
         return res.json({
-            verified:true
+            verified: false,
+            message: "OTP not found"
         });
     }
+    // otp expired
+    if (Date.now() > data.expiresAt) {
+        delete otpStore.phone[email];
+        return res.json({
+            verified: false,
+            message: "OTP expired"
+        });
+    }
+    // invalid otp
+    if (data.code !== code) {
+        return res.json({
+            verified: false,
+            message: "Invalid OTP"
+        });
+    }
+    // success
+    delete otpStore.phone[email];
     return res.json({
-        verified:false
+        verified: true
     });
 });
 
