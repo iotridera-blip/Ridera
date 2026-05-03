@@ -223,9 +223,9 @@ app.post("/send-forgot-password-otp", async (req, res) => {
                     email:"iot.ridera@gmail.com"
                 },
                 to:[{ email }],
-                subject:"Ridera Password Reset Code",
+                subject:"Account Password Reset Code",
                 htmlContent:`
-                    <p>Your password reset code is:</p>
+                    <p>Your account password reset code is:</p>
                     <h2 style="letter-spacing:3px;">
                         ${otp}
                     </h2>
@@ -364,9 +364,9 @@ app.post("/send-change-password-otp", async (req, res) => {
                     email:"iot.ridera@gmail.com"
                 },
                 to:[{ email }],
-                subject:"Ridera Password Change Code",
+                subject:"Account Password Change Code",
                 htmlContent:`
-                    <p>Your password change code is:</p>
+                    <p>Your account password change code is:</p>
                     <h2 style="letter-spacing:3px;">
                         ${otp}
                     </h2>
