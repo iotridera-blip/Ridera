@@ -22,16 +22,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const otpStore = {
-    email: {},
-    phone: {},
-    changeEmail: {},
-    changePhone: {},
-    forgotPassword: {},
-    changePassword: {},
-    deleteAccount: {}
-};
-
 // ---------------- OTP GENERATOR ----------------
 function generateOtp() {
     return Math.floor(
@@ -139,10 +129,11 @@ app.post("/send-phone-otp", async (req,res)=>{
         });
     }
     const otp = generateOtp();
-    otpStore.phone[email] = {
+    const key = phone.replace(/\./g, "_");
+    await admin.database().ref("otp/phone/" + key).set({
         code: otp,
-        expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes
-    };
+        expiresAt: Date.now() + 5 * 60 * 1000
+    });
     try{
         const message =
             encodeURIComponent(
@@ -167,7 +158,7 @@ app.post("/send-phone-otp", async (req,res)=>{
         });
     }catch(error){
         console.log("IPROG SMS ERROR:", error.response?.data || error.message);
-        delete otpStore.phone[phone];
+        await admin.database().ref("otp/phone/" + key).remove();
         return res.status(500).json({
             success:false
         });
@@ -176,38 +167,32 @@ app.post("/send-phone-otp", async (req,res)=>{
 
 
 // ---------------- VERIFY PHONE OTP ----------------
-app.post("/verify-phone-otp",(req,res)=>{
+app.post("/verify-phone-otp", async (req,res)=>{
     const { phone, code } = req.body;
     if(!phone || !code){
         return res.status(400).json({
             verified:false
         });
     }
-    const data = otpStore.phone[email];
-    // otp not found
-    if (!data) {
-        return res.json({
-            verified: false,
-            message: "OTP not found"
-        });
-    }
-    // otp expired
-    if (Date.now() > data.expiresAt) {
-        delete otpStore.phone[email];
-        return res.json({
-            verified: false,
-            message: "OTP expired"
-        });
-    }
+    const key = phone.replace(/\./g, "_");
+    const snap = await admin.database().ref("otp/phone/" + key).get();
+    const data = snap.val();
     // invalid otp
-    if (data.code !== code) {
+    if (!data || data.code !== code) {
         return res.json({
             verified: false,
             message: "Invalid OTP"
         });
     }
+    // valid but expired 
+    if (Date.now() > data.expiresAt) {
+        return res.json({
+            verified: false,
+            message: "OTP expired"
+        });
+    }
     // success
-    delete otpStore.phone[email];
+    await admin.database().ref("otp/phone/" + key).remove();
     return res.json({
         verified: true
     });
@@ -223,7 +208,12 @@ app.post("/send-forgot-password-otp", async (req, res) => {
         });
     }
     const otp = generateOtp();
-    otpStore.forgotPassword[email] = otp;
+    const key = email.replace(/\./g, "_");
+    await admin.database().ref("otp/forgotPassword/" + key).set({
+        code: otp,
+        expiresAt: Date.now() + 5 * 60 * 1000
+    });
+
     try {
         await axios.post(
             "https://api.brevo.com/v3/smtp/email",
@@ -239,6 +229,7 @@ app.post("/send-forgot-password-otp", async (req, res) => {
                     <h2 style="letter-spacing:3px;">
                         ${otp}
                     </h2>
+                    <p>This code is valid for 5 minutes.</p>
                     <p>If you did not request this code, please ignore this email.</p>
                 `
             },
@@ -256,7 +247,7 @@ app.post("/send-forgot-password-otp", async (req, res) => {
         });
     } catch(error){
         console.log("BREVO ERROR:", error.response?.data || error.message);
-        delete otpStore.forgotPassword[email];
+        await admin.database().ref("otp/forgotPassword/" + key).remove();
         return res.status(500).json({
             success:false,
             message:"Password reset code send failed"
@@ -266,21 +257,34 @@ app.post("/send-forgot-password-otp", async (req, res) => {
 
 
 // ---------------- VERIFY FORGOT PASSWORD OTP ----------------
-app.post("/verify-forgot-password-otp",(req,res)=>{
+app.post("/verify-forgot-password-otp", async (req,res)=>{
     const { email, code } = req.body;
     if(!email || !code){
         return res.status(400).json({
             verified:false
         });
     }
-    if(otpStore.forgotPassword[email] === code){
-        delete otpStore.forgotPassword[email];
+    const key = email.replace(/\./g, "_");
+    const snap = await admin.database().ref("otp/forgotPassword/" + key).get();
+    const data = snap.val();
+    // invalid otp
+    if (!data || data.code !== code) {
         return res.json({
-            verified:true
+            verified: false,
+            message: "Invalid OTP"
         });
     }
+    // valid but expired 
+    if (Date.now() > data.expiresAt) {
+        return res.json({
+            verified: false,
+            message: "OTP expired"
+        });
+    }
+    // success
+    await admin.database().ref("otp/forgotPassword/" + key).remove();
     return res.json({
-        verified:false
+        verified: true
     });
 });
 
@@ -309,9 +313,9 @@ app.post("/reset-password", async (req, res) => {
                     email: "iot.ridera@gmail.com"
                 },
                 to: [{ email }],
-                subject: "Ridera Password Updated",
+                subject: "Account Password Updated",
                 htmlContent: `
-                    <p>Your password has been successfully updated.</p>
+                    <p>Your account password has been successfully updated.</p>
                     <p>If this wasn’t you, please secure your account immediately.</p>
                 `
             },
@@ -346,7 +350,11 @@ app.post("/send-change-password-otp", async (req, res) => {
         });
     }
     const otp = generateOtp();
-    otpStore.changePassword[email] = otp;
+    const key = email.replace(/\./g, "_");
+    await admin.database().ref("otp/changePassword/" + key).set({
+        code: otp,
+        expiresAt: Date.now() + 5 * 60 * 1000
+    });
     try {
         await axios.post(
             "https://api.brevo.com/v3/smtp/email",
@@ -362,6 +370,7 @@ app.post("/send-change-password-otp", async (req, res) => {
                     <h2 style="letter-spacing:3px;">
                         ${otp}
                     </h2>
+                    <p>This code is valid for 5 minutes.</p>
                     <p>If you did not request this code, please ignore this email.</p>
                 `
             },
@@ -379,7 +388,7 @@ app.post("/send-change-password-otp", async (req, res) => {
         });
     } catch(error){
         console.log("BREVO ERROR:", error.response?.data || error.message);
-        delete otpStore.changePassword[email];
+        await admin.database().ref("otp/changePassword/" + key).remove();
         return res.status(500).json({
             success:false,
             message:"Password change code send failed"
@@ -388,21 +397,34 @@ app.post("/send-change-password-otp", async (req, res) => {
 });
 
 // ---------------- VERIFY CHANGE PASSWORD OTP ----------------
-app.post("/verify-change-password-otp",(req,res)=>{
+app.post("/verify-change-password-otp", async (req,res)=>{
     const { email, code } = req.body;
     if(!email || !code){
         return res.status(400).json({
             verified:false
         });
     }
-    if(otpStore.changePassword[email] === code){
-        delete otpStore.changePassword[email];
+    const key = email.replace(/\./g, "_");
+    const snap = await admin.database().ref("otp/changePassword/" + key).get();
+    const data = snap.val();
+    // invalid otp
+    if (!data || data.code !== code) {
         return res.json({
-            verified:true
+            verified: false,
+            message: "Invalid OTP"
         });
     }
+    // valid but expired 
+    if (Date.now() > data.expiresAt) {
+        return res.json({
+            verified: false,
+            message: "OTP expired"
+        });
+    }
+    // success
+    await admin.database().ref("otp/changePassword/" + key).remove();
     return res.json({
-        verified:false
+        verified: true
     });
 });
 
@@ -440,7 +462,7 @@ app.post("/change-password", async (req, res) => {
                     email: "iot.ridera@gmail.com"
                 },
                 to: [{ email }],
-                subject: "Ridera Password Changed",
+                subject: "Account Password Changed",
                 htmlContent: `
                     <p>Your account password has been successfully changed.</p>
                     <p>If this wasn’t you, please secure your account immediately.</p>
