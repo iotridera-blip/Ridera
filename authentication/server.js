@@ -29,6 +29,7 @@ function generateOtp() {
     ).toString();
 }
 
+// initial for verification, send email & phone otp
 // ---------------- SEND EMAIL OTP ----------------
 app.post("/send-email-otp", async (req, res) => {
     const { email } = req.body;
@@ -197,6 +198,98 @@ app.post("/verify-phone-otp", async (req,res)=>{
         verified: true
     });
 });
+
+// ---------------- SEND CHANGE EMAIL OTP ----------------
+app.post("/send-change-email-otp", async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+        return res.status(400).json({
+            success:false,
+            message:"Email required"
+        });
+    }
+    const otp = generateOtp();
+    const key = email.replace(/\./g, "_");
+    await admin.database().ref("otp/changeEmail/" + key).set({
+        code: otp,
+        expiresAt: Date.now() + 5 * 60 * 1000
+    });
+    try {
+        await axios.post(
+            "https://api.brevo.com/v3/smtp/email",
+            {
+                sender:{
+                    name:"Ridera",
+                    email:"iot.ridera@gmail.com"
+                },
+                to:[{ email }],
+                subject:"Account Email Change Code",
+                htmlContent:`
+                    <p>Your account email change code is:</p>
+                    <h2 style="letter-spacing:3px;">
+                        ${otp}
+                    </h2>
+                    <p>This code is valid for 5 minutes.</p>
+                    <p>If you did not request this code, please ignore this email.</p>
+                `
+            },
+            {
+                headers:{
+                    "api-key":process.env.BREVO_API_KEY,
+                    "Content-Type":"application/json"
+                },
+                timeout:10000
+            }
+        );
+        console.log("Verification code sent to:", email);
+        return res.json({
+            success:true
+        });
+    } catch(error){
+        console.log("BREVO ERROR:", error.response?.data || error.message);
+        await admin.database().ref("otp/changeEmail/" + key).remove();
+        return res.status(500).json({
+            success:false,
+            message:"Verification code send failed"
+        });
+    }
+});
+
+
+// ---------------- VERIFY CHANGE EMAIL OTP ----------------
+app.post("/verify-change-email-otp", async (req,res)=>{
+    const { email, code } = req.body;
+    if(!email || !code){
+        return res.status(400).json({
+            verified:false
+        });
+    }
+    const key = email.replace(/\./g, "_");
+    const snap = await admin.database().ref("otp/changeEmail/" + key).get();
+    const data = snap.val();
+    // invalid otp
+    if (!data || data.code !== code) {
+        return res.json({
+            verified: false,
+            message: "Invalid OTP"
+        });
+    }
+    // valid but expired 
+    if (Date.now() > data.expiresAt) {
+        return res.json({
+            verified: false,
+            message: "OTP expired"
+        });
+    }
+    // success
+    await admin.database().ref("otp/changeEmail/" + key).remove();
+    return res.json({
+        verified: true
+    });
+});
+
+
+
 
 // ---------------- SEND FORGOT PASSWORD OTP ----------------
 app.post("/send-forgot-password-otp", async (req, res) => {
