@@ -29,7 +29,6 @@ function generateOtp() {
     ).toString();
 }
 
-// initial for verification, send email & phone otp
 // ---------------- SEND EMAIL OTP ----------------
 app.post("/send-email-otp", async (req, res) => {
     const { email } = req.body;
@@ -388,6 +387,147 @@ app.post("/change-email", async (req, res) => {
             message: "Email update failed"
         });
     }
+});
+
+// ---------------- SEND CHANGE PHONE OTP (IPROG SMS) ----------------
+app.post("/send-change-phone-otp", async (req,res)=>{
+    const { phone } = req.body;
+    if(!phone){
+        return res.status(400).json({
+            success:false,
+            message:"Phone required"
+        });
+    }
+    const otp = generateOtp();
+    const key = phone.replace(/\./g, "_");
+    await admin.database().ref("otp/changePhone/" + key).set({
+        code: otp,
+        expiresAt: Date.now() + 5 * 60 * 1000
+    });
+    try{
+        const message =
+            encodeURIComponent(
+                `Your Ridera change phone number verification code is ${otp}. This code is valid for 5 minutes.`
+            );
+        const url =
+            `https://www.iprogsms.com/api/v1/sms_messages` +
+            `?api_token=${process.env.IPROG_API_TOKEN}` +
+            `&message=${message}` +
+            `&phone_number=${phone}`;
+        // same as your curl uses POST
+        await axios.post(
+            url,
+            null,
+            {
+                timeout:10000
+            }
+        );
+        console.log("SMS Verification code sent:", phone);
+        return res.json({
+            success:true
+        });
+    }catch(error){
+        console.log("IPROG SMS ERROR:", error.response?.data || error.message);
+        await admin.database().ref("otp/changePhone/" + key).remove();
+        return res.status(500).json({
+            success:false
+        });
+    }
+});
+
+
+// ---------------- VERIFY CHANGE PHONE OTP ----------------
+app.post("/verify-change-phone-otp", async (req,res)=>{
+    const { phone, code } = req.body;
+    if(!phone || !code){
+        return res.status(400).json({
+            verified:false
+        });
+    }
+    const key = phone.replace(/\./g, "_");
+    const snap = await admin.database().ref("otp/changePhone/" + key).get();
+    const data = snap.val();
+    // invalid otp
+    if (!data || data.code !== code) {
+        return res.json({
+            verified: false,
+            message: "Invalid OTP"
+        });
+    }
+    // valid but expired 
+    if (Date.now() > data.expiresAt) {
+        return res.json({
+            verified: false,
+            message: "OTP expired"
+        });
+    }
+    // success
+    await admin.database().ref("otp/changePhone/" + key).remove();
+    return res.json({
+        verified: true
+    });
+});
+
+// ---------------- CHANGE PHONE ----------------
+app.post("/change-phone", async (req, res) => {
+
+    const { uid, newPhone } = req.body;
+
+    if (!uid || !newPhone) {
+        return res.status(400).json({
+            success: false,
+            message: "Missing fields"
+        });
+    }
+
+    try {
+
+        const usersRef = admin.database().ref("Ridera/users");
+
+        const snapshot = await usersRef
+            .orderByChild("uid")
+            .equalTo(uid)
+            .get();
+
+        if (snapshot.exists()) {
+
+            const updates = [];
+
+            snapshot.forEach((child) => {
+
+                updates.push(
+                    child.ref.update({
+                        phone: newPhone
+                    })
+                );
+
+            });
+
+            await Promise.all(updates);
+
+        }
+
+        console.log("PHONE UPDATED:", uid, newPhone);
+
+        return res.json({
+            success: true,
+            message: "Phone updated"
+        });
+
+    } catch (error) {
+
+        console.log(
+            "CHANGE PHONE ERROR:",
+            error.response?.data || error.message || error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: "Phone update failed"
+        });
+
+    }
+
 });
 
 // ---------------- SEND FORGOT PASSWORD OTP ----------------
