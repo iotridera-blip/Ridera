@@ -310,11 +310,19 @@ app.post("/change-email", async (req, res) => {
         });
 
         // 3. update database email
-        await admin.database()
-            .ref("Ridera/users/" + uid)
-            .update({
-                email: newEmail
+        const usersSnap = await admin.database()
+            .ref("Ridera/users")
+            .orderByChild("uid")
+            .equalTo(uid)
+            .get();
+        
+        if (usersSnap.exists()) {
+            usersSnap.forEach((child) => {
+                child.ref.update({
+                    email: newEmail
+                });
             });
+        }
 
         // success message (old & new email)
         await axios.post(
