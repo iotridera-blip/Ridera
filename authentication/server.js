@@ -310,13 +310,18 @@ app.post("/change-email", async (req, res) => {
         });
 
         // 3. update database email
-        const userRef = admin.database().ref("Ridera/users/" + uid);
+        const usersRef = admin.database().ref("Ridera/users");
 
-        const snapshot = await userRef.get();
+        const snapshot = await usersRef
+            .orderByChild("uid")
+            .equalTo(uid)
+            .get();
 
-        if (snapshot.exists()) {
-            await userRef.update({
-                email: newEmail
+            if (snapshot.exists()) {
+                snapshot.forEach(async (child) => {
+                    await child.ref.update({
+                    email: newEmail
+                });
             });
         }
 
