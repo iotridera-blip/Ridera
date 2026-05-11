@@ -385,8 +385,8 @@ app.post("/change-email", async (req, res) => {
         });
 
     } catch (error) {
-        console.log(error);
-
+        console.log("CHANGE EMAIL ERROR:");
+        console.log(error.response?.data || error.message || error);
         return res.status(500).json({
             success: false,
             message: "Email update failed"
