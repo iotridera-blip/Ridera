@@ -300,11 +300,71 @@ app.post("/change-email", async (req, res) => {
     }
 
     try {
+        // 1. get old email
+        const userRecord = await admin.auth().getUser(uid);
+        const oldEmail = userRecord.email;
+
+        // 2. update auth email
         await admin.auth().updateUser(uid, {
             email: newEmail
         });
 
-        console.log("Email updated:", uid, newEmail);
+        // 3. update database email
+        await admin.database()
+            .ref("Ridera/users/" + uid)
+            .update({
+                email: newEmail
+            });
+
+        // success message (old & new email)
+        await axios.post(
+            "https://api.brevo.com/v3/smtp/email",
+            {
+                sender: {
+                    name: "Ridera",
+                    email: "iot.ridera@gmail.com"
+                },
+                to: [{ email: oldEmail }],
+                subject: "Account Email Changed",
+                htmlContent: `
+                    <p>Your account email was recently changed.</p>
+                    <p><b>New Email:</b> ${newEmail}</p>
+                    <br/>
+                    <p>If this wasn't you, please secure your account immediately.</p>
+                `
+            },
+            {
+                headers: {
+                    "api-key": process.env.BREVO_API_KEY,
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+
+        await axios.post(
+            "https://api.brevo.com/v3/smtp/email",
+            {
+                sender: {
+                    name: "Ridera",
+                    email: "iot.ridera@gmail.com"
+                },
+                to: [{ email: newEmail }],
+                subject: "Account Email Updated",
+                htmlContent: `
+                    <p>Your account email address has been successfully updated.</p>
+                    
+                    <p>You can now use this email to sign in to your account.</p>
+                `
+            },
+            {
+                headers: {
+                    "api-key": process.env.BREVO_API_KEY,
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+
+        console.log("EMAIL UPDATED:", uid, oldEmail, "->", newEmail);
 
         return res.json({
             success: true,
