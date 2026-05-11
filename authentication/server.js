@@ -288,8 +288,38 @@ app.post("/verify-change-email-otp", async (req,res)=>{
     });
 });
 
+// ---------------- CHANGE EMAIL ----------------
+app.post("/change-email", async (req, res) => {
+    const { uid, newEmail } = req.body;
 
+    if (!uid || !newEmail) {
+        return res.status(400).json({
+            success: false,
+            message: "Missing fields"
+        });
+    }
 
+    try {
+        await admin.auth().updateUser(uid, {
+            email: newEmail
+        });
+
+        console.log("Email updated:", uid, newEmail);
+
+        return res.json({
+            success: true,
+            message: "Email updated"
+        });
+
+    } catch (error) {
+        console.log(error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Email update failed"
+        });
+    }
+});
 
 // ---------------- SEND FORGOT PASSWORD OTP ----------------
 app.post("/send-forgot-password-otp", async (req, res) => {
