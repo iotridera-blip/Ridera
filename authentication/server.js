@@ -469,9 +469,10 @@ app.post("/verify-change-phone-otp", async (req,res)=>{
 });
 
 // ---------------- CHANGE PHONE ----------------
+// ---------------- CHANGE PHONE ----------------
 app.post("/change-phone", async (req, res) => {
 
-    const { uid, newPhone } = req.body;
+    const { uid, oldPhone, newPhone } = req.body;
 
     if (!uid || !newPhone) {
         return res.status(400).json({
@@ -489,11 +490,15 @@ app.post("/change-phone", async (req, res) => {
             .equalTo(uid)
             .get();
 
+        let previousPhone = null;
+
         if (snapshot.exists()) {
 
             const updates = [];
 
             snapshot.forEach((child) => {
+
+                previousPhone = child.val().phone;
 
                 updates.push(
                     child.ref.update({
@@ -504,10 +509,37 @@ app.post("/change-phone", async (req, res) => {
             });
 
             await Promise.all(updates);
-
         }
 
-        console.log("PHONE UPDATED:", uid, newPhone);
+        // ---------------- SMS TO OLD NUMBER ----------------
+        if (previousPhone) {
+            const msg1 = encodeURIComponent(
+                `Your Ridera phone number was changed to ${newPhone}. If this wasn't you, secure your account immediately.`
+            );
+
+            const url1 =
+                `https://www.iprogsms.com/api/v1/sms_messages` +
+                `?api_token=${process.env.IPROG_API_TOKEN}` +
+                `&message=${msg1}` +
+                `&phone_number=${previousPhone}`;
+
+            await axios.post(url1);
+        }
+
+        // ---------------- SMS TO NEW NUMBER ----------------
+        const msg2 = encodeURIComponent(
+            `Your Ridera phone number has been updated successfully.`
+        );
+
+        const url2 =
+            `https://www.iprogsms.com/api/v1/sms_messages` +
+            `?api_token=${process.env.IPROG_API_TOKEN}` +
+            `&message=${msg2}` +
+            `&phone_number=${newPhone}`;
+
+        await axios.post(url2);
+
+        console.log("PHONE UPDATED + SMS SENT:", uid);
 
         return res.json({
             success: true,
