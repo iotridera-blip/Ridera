@@ -925,21 +925,27 @@ app.post("/verify-delete-account-otp", async (req,res)=>{
     });
 });
 
-// ---------------- DELETE ACCOUNT --------------
+// ---------------- DELETE ACCOUNT ----------------
 app.post("/delete-account", async (req, res) => {
-    const { uid, email, phone } = req.body;
 
-    if (!uid || !email) {
+    const { uid } = req.body;
+
+    if (!uid) {
         return res.status(400).json({
             success: false,
-            message: "Missing fields"
+            message: "UID required"
         });
     }
 
     try {
-        // ---------------- GET USER DATA ----------------
+
+        // ---------------- GET USER ----------------
         const userRecord = await admin.auth().getUser(uid);
 
+        const email = userRecord.email || "";
+        const phone = userRecord.phoneNumber || "";
+
+        // ---------------- FIND USER IN DATABASE ----------------
         const usersRef = admin.database().ref("Ridera/users");
 
         const snapshot = await usersRef
@@ -947,106 +953,206 @@ app.post("/delete-account", async (req, res) => {
             .equalTo(uid)
             .get();
 
-        let profileImageUrl = null;
+        let profileImageUrl = "";
 
-        // ---------------- MARK AS DELETED (REAL-TIME LOGOUT TRIGGER) ----------------
-        await usersRef
-            .orderByChild("uid")
-            .equalTo(uid)
-            .once("value", async (snap) => {
-                if (snap.exists()) {
-                    snap.forEach((child) => {
-                        child.ref.update({
-                            status: "deleted"
-                        });
-                        profileImageUrl = child.val().photo;
-                    });
-                }
+        if (snapshot.exists()) {
+
+            const updates = [];
+
+            snapshot.forEach((child) => {
+
+                const userData = child.val();
+
+                profileImageUrl = userData.photo || "";
+
+                // delete user node
+                updates.push(
+                    child.ref.remove()
+                );
+
             });
 
-        // ---------------- DELETE AUTH USER ----------------
-        await admin.auth().deleteUser(uid);
+            await Promise.all(updates);
+        }
 
-        // ---------------- REVOKE SESSIONS ----------------
-        await admin.auth().revokeRefreshTokens(uid);
-
-        // ---------------- DELETE STORAGE IMAGE ----------------
+        // ---------------- DELETE PROFILE IMAGE ----------------
         try {
-            if (profileImageUrl && profileImageUrl.includes("/o/")) {
-                const decodedUrl = decodeURIComponent(profileImageUrl);
-                const path = decodedUrl.split("/o/")[1]?.split("?")[0];
+
+            if (
+                profileImageUrl &&
+                profileImageUrl.trim() !== "" &&
+                profileImageUrl.includes("/o/")
+            ) {
+
+                const decodedUrl =
+                    decodeURIComponent(profileImageUrl);
+
+                const path =
+                    decodedUrl
+                        .split("/o/")[1]
+                        ?.split("?")[0];
 
                 if (path) {
-                    await admin.storage().bucket().file(path).delete();
+
+                    await admin
+                        .storage()
+                        .bucket()
+                        .file(path)
+                        .delete();
+
+                    console.log(
+                        "PROFILE IMAGE DELETED:",
+                        path
+                    );
                 }
             }
-        } catch (err) {
-            console.log("STORAGE DELETE ERROR:", err.message);
+
+        } catch (storageError) {
+
+            console.log(
+                "PROFILE IMAGE DELETE ERROR:",
+                storageError.message
+            );
         }
 
-        // ---------------- CLEAN ALL OTP TYPES ----------------
-        const emailKey = email.replace(/\./g, "_");
-        const phoneKey = phone ? phone.replace(/\./g, "_") : null;
+        // ---------------- DELETE USER OTPS ONLY ----------------
+        const otpRef = admin.database().ref("otp");
 
-        const otpPaths = [
-            "otp/email/",
-            "otp/phone/",
-            "otp/changeEmail/",
-            "otp/changePhone/",
-            "otp/changePassword/",
-            "otp/forgotPassword/",
-            "otp/deleteAccount/"
-        ];
+        const otpSnap = await otpRef.get();
 
-        for (const path of otpPaths) {
-            await admin.database().ref(path + emailKey).remove();
-        }
+        if (otpSnap.exists()) {
 
-        if (phoneKey) {
-            for (const path of otpPaths) {
-                await admin.database().ref(path + phoneKey).remove();
-            }
-        }
+            const otpData = otpSnap.val();
 
-        // ---------------- EMAIL NOTIFICATION ----------------
-        await axios.post(
-            "https://api.brevo.com/v3/smtp/email",
-            {
-                sender: {
-                    name: "Ridera",
-                    email: "iot.ridera@gmail.com"
-                },
-                to: [{ email }],
-                subject: "Account Deleted",
-                htmlContent: `
-                    <p>Your Ridera account has been permanently deleted.</p>
-                    <br>
-                    <p>Thank you for using Ridera.</p>
-                `
-            },
-            {
-                headers: {
-                    "api-key": process.env.BREVO_API_KEY,
-                    "Content-Type": "application/json"
+            const emailKey =
+                email.replace(/\./g, "_");
+
+            const phoneKey =
+                phone.replace(/\./g, "_");
+
+            const otpTypes = [
+                "email",
+                "phone",
+                "changeEmail",
+                "changePhone",
+                "changePassword",
+                "forgotPassword",
+                "deleteAccount"
+            ];
+
+            const deleteTasks = [];
+
+            otpTypes.forEach((type) => {
+
+                // email based otp
+                if (
+                    otpData[type] &&
+                    otpData[type][emailKey]
+                ) {
+
+                    deleteTasks.push(
+                        otpRef
+                            .child(type)
+                            .child(emailKey)
+                            .remove()
+                    );
                 }
+
+                // phone based otp
+                if (
+                    otpData[type] &&
+                    otpData[type][phoneKey]
+                ) {
+
+                    deleteTasks.push(
+                        otpRef
+                            .child(type)
+                            .child(phoneKey)
+                            .remove()
+                    );
+                }
+
+            });
+
+            await Promise.all(deleteTasks);
+
+            console.log(
+                "USER OTPS DELETED:",
+                uid
+            );
+        }
+
+        // ---------------- SEND EMAIL ----------------
+        if (email) {
+
+            try {
+
+                await axios.post(
+                    "https://api.brevo.com/v3/smtp/email",
+                    {
+                        sender: {
+                            name: "Ridera",
+                            email: "iot.ridera@gmail.com"
+                        },
+
+                        to: [{ email }],
+
+                        subject: "Account Deleted",
+
+                        htmlContent: `
+                            <p>Your Ridera account has been permanently deleted.</p>
+                            <p>All associated account information has been removed from our system.</p>
+                            <br/>
+                            <p>Thank you for using Ridera.</p>
+                        `
+                    },
+                    {
+                        headers: {
+                            "api-key": process.env.BREVO_API_KEY,
+                            "Content-Type": "application/json"
+                        },
+                        timeout: 10000
+                    }
+                );
+
+            } catch (emailError) {
+
+                console.log(
+                    "DELETE EMAIL ERROR:",
+                    emailError.response?.data ||
+                    emailError.message
+                );
             }
+        }
+
+        // ---------------- DELETE FIREBASE AUTH USER ----------------
+        await admin.auth().deleteUser(uid);
+
+        console.log(
+            "ACCOUNT DELETED:",
+            uid
         );
-
-        console.log("ACCOUNT DELETED:", uid);
 
         return res.json({
             success: true,
-            message: "Account deleted"
+            message: "Account Deleted"
         });
 
     } catch (error) {
-        console.log("DELETE ERROR:", error.message);
+
+        console.log(
+            "DELETE ACCOUNT ERROR:",
+            error.response?.data ||
+            error.message ||
+            error
+        );
 
         return res.status(500).json({
             success: false,
-            message: "Delete failed"
+            message: "Delete account failed"
         });
     }
+
 });
 
 // ---------------- SEND WELCOME EMAIL ----------------
