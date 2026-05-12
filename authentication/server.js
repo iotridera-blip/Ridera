@@ -10,7 +10,8 @@ const serviceAccount = {
 
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    databaseURL: process.env.FB_DATABASE_URL
+    databaseURL: process.env.FB_DATABASE_URL,
+    storageBucket: process.env.FB_STORAGE_BUCKET
 });
 
 const express = require("express");
