@@ -469,7 +469,6 @@ app.post("/verify-change-phone-otp", async (req,res)=>{
 });
 
 // ---------------- CHANGE PHONE ----------------
-// ---------------- CHANGE PHONE ----------------
 app.post("/change-phone", async (req, res) => {
     const { uid, oldPhone, newPhone } = req.body;
     if (!uid || !newPhone) {
@@ -533,148 +532,6 @@ app.post("/change-phone", async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Phone update failed"
-        });
-    }
-});
-
-// ---------------- SEND FORGOT PASSWORD OTP ----------------
-app.post("/send-forgot-password-otp", async (req, res) => {
-    const { email } = req.body;
-    if (!email) {
-        return res.status(400).json({
-            success:false,
-            message:"Email required"
-        });
-    }
-    const otp = generateOtp();
-    const key = email.replace(/\./g, "_");
-    await admin.database().ref("otp/forgotPassword/" + key).set({
-        code: otp,
-        expiresAt: Date.now() + 5 * 60 * 1000
-    });
-
-    try {
-        await axios.post(
-            "https://api.brevo.com/v3/smtp/email",
-            {
-                sender:{
-                    name:"Ridera",
-                    email:"iot.ridera@gmail.com"
-                },
-                to:[{ email }],
-                subject:"Account Password Reset Code",
-                htmlContent:`
-                    <p>Your account password reset code is:</p>
-                    <h2 style="letter-spacing:3px;">
-                        ${otp}
-                    </h2>
-                    <p>This code is valid for 5 minutes.</p>
-                    <p>If you did not request this code, please ignore this email.</p>
-                `
-            },
-            {
-                headers:{
-                    "api-key":process.env.BREVO_API_KEY,
-                    "Content-Type":"application/json"
-                },
-                timeout:10000
-            }
-        );
-        console.log("Password reset code sent to:", email);
-        return res.json({
-            success:true
-        });
-    } catch(error){
-        console.log("BREVO ERROR:", error.response?.data || error.message);
-        await admin.database().ref("otp/forgotPassword/" + key).remove();
-        return res.status(500).json({
-            success:false,
-            message:"Password reset code send failed"
-        });
-    }
-});
-
-
-// ---------------- VERIFY FORGOT PASSWORD OTP ----------------
-app.post("/verify-forgot-password-otp", async (req,res)=>{
-    const { email, code } = req.body;
-    if(!email || !code){
-        return res.status(400).json({
-            verified:false
-        });
-    }
-    const key = email.replace(/\./g, "_");
-    const snap = await admin.database().ref("otp/forgotPassword/" + key).get();
-    const data = snap.val();
-    // invalid otp
-    if (!data || data.code !== code) {
-        return res.json({
-            verified: false,
-            message: "Invalid OTP"
-        });
-    }
-    // valid but expired 
-    if (Date.now() > data.expiresAt) {
-        return res.json({
-            verified: false,
-            message: "OTP expired"
-        });
-    }
-    // success
-    await admin.database().ref("otp/forgotPassword/" + key).remove();
-    return res.json({
-        verified: true
-    });
-});
-
-// ---------------- RESET PASSWORD --------------
-app.post("/reset-password", async (req, res) => {
-    const { email, newPassword } = req.body;
-    if (!email || !newPassword) {
-        return res.status(400).json({
-            success: false,
-            message: "Missing fields"
-        });
-    }
-    try {
-        // TODO: Update password
-        const user = await admin.auth().getUserByEmail(email);
-        await admin.auth().updateUser(user.uid, {
-            password: newPassword
-        });
-        console.log("Reset password for:", email);
-        // send email (success message)
-        await axios.post(
-            "https://api.brevo.com/v3/smtp/email",
-            {
-                sender: {
-                    name: "Ridera",
-                    email: "iot.ridera@gmail.com"
-                },
-                to: [{ email }],
-                subject: "Account Password Updated",
-                htmlContent: `
-                    <p>Your account password has been successfully updated.</p>
-                    <p>If this wasn’t you, please secure your account immediately.</p>
-                `
-            },
-            {
-                headers: {
-                    "api-key": process.env.BREVO_API_KEY,
-                    "Content-Type": "application/json"
-                },
-                timeout: 10000
-            }
-        );
-        return res.json({
-            success: true,
-            message: "Password updated"
-        });
-    } catch (error) {
-        console.log(error.response?.data || error.message);
-        return res.status(500).json({
-            success: false,
-            message: "Reset failed"
         });
     }
 });
@@ -832,6 +689,350 @@ app.post("/change-password", async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Change failed"
+        });
+    }
+});
+
+// ---------------- SEND FORGOT PASSWORD OTP ----------------
+app.post("/send-forgot-password-otp", async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+        return res.status(400).json({
+            success:false,
+            message:"Email required"
+        });
+    }
+    const otp = generateOtp();
+    const key = email.replace(/\./g, "_");
+    await admin.database().ref("otp/forgotPassword/" + key).set({
+        code: otp,
+        expiresAt: Date.now() + 5 * 60 * 1000
+    });
+
+    try {
+        await axios.post(
+            "https://api.brevo.com/v3/smtp/email",
+            {
+                sender:{
+                    name:"Ridera",
+                    email:"iot.ridera@gmail.com"
+                },
+                to:[{ email }],
+                subject:"Account Password Reset Code",
+                htmlContent:`
+                    <p>Your account password reset code is:</p>
+                    <h2 style="letter-spacing:3px;">
+                        ${otp}
+                    </h2>
+                    <p>This code is valid for 5 minutes.</p>
+                    <p>If you did not request this code, please ignore this email.</p>
+                `
+            },
+            {
+                headers:{
+                    "api-key":process.env.BREVO_API_KEY,
+                    "Content-Type":"application/json"
+                },
+                timeout:10000
+            }
+        );
+        console.log("Password reset code sent to:", email);
+        return res.json({
+            success:true
+        });
+    } catch(error){
+        console.log("BREVO ERROR:", error.response?.data || error.message);
+        await admin.database().ref("otp/forgotPassword/" + key).remove();
+        return res.status(500).json({
+            success:false,
+            message:"Password reset code send failed"
+        });
+    }
+});
+
+
+// ---------------- VERIFY FORGOT PASSWORD OTP ----------------
+app.post("/verify-forgot-password-otp", async (req,res)=>{
+    const { email, code } = req.body;
+    if(!email || !code){
+        return res.status(400).json({
+            verified:false
+        });
+    }
+    const key = email.replace(/\./g, "_");
+    const snap = await admin.database().ref("otp/forgotPassword/" + key).get();
+    const data = snap.val();
+    // invalid otp
+    if (!data || data.code !== code) {
+        return res.json({
+            verified: false,
+            message: "Invalid OTP"
+        });
+    }
+    // valid but expired 
+    if (Date.now() > data.expiresAt) {
+        return res.json({
+            verified: false,
+            message: "OTP expired"
+        });
+    }
+    // success
+    await admin.database().ref("otp/forgotPassword/" + key).remove();
+    return res.json({
+        verified: true
+    });
+});
+
+// ---------------- RESET PASSWORD --------------
+app.post("/reset-password", async (req, res) => {
+    const { email, newPassword } = req.body;
+    if (!email || !newPassword) {
+        return res.status(400).json({
+            success: false,
+            message: "Missing fields"
+        });
+    }
+    try {
+        // TODO: Update password
+        const user = await admin.auth().getUserByEmail(email);
+        await admin.auth().updateUser(user.uid, {
+            password: newPassword
+        });
+        console.log("Reset password for:", email);
+        // send email (success message)
+        await axios.post(
+            "https://api.brevo.com/v3/smtp/email",
+            {
+                sender: {
+                    name: "Ridera",
+                    email: "iot.ridera@gmail.com"
+                },
+                to: [{ email }],
+                subject: "Account Password Updated",
+                htmlContent: `
+                    <p>Your account password has been successfully updated.</p>
+                    <p>If this wasn’t you, please secure your account immediately.</p>
+                `
+            },
+            {
+                headers: {
+                    "api-key": process.env.BREVO_API_KEY,
+                    "Content-Type": "application/json"
+                },
+                timeout: 10000
+            }
+        );
+        return res.json({
+            success: true,
+            message: "Password updated"
+        });
+    } catch (error) {
+        console.log(error.response?.data || error.message);
+        return res.status(500).json({
+            success: false,
+            message: "Reset failed"
+        });
+    }
+});
+
+// ---------------- SEND DELETE ACCOUNT OTP ----------------
+app.post("/send-delete-account-otp", async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+        return res.status(400).json({
+            success:false,
+            message:"Email required"
+        });
+    }
+    const otp = generateOtp();
+    const key = email.replace(/\./g, "_");
+    await admin.database().ref("otp/deleteAccount/" + key).set({
+        code: otp,
+        expiresAt: Date.now() + 5 * 60 * 1000
+    });
+    try {
+        await axios.post(
+            "https://api.brevo.com/v3/smtp/email",
+            {
+                sender:{
+                    name:"Ridera",
+                    email:"iot.ridera@gmail.com"
+                },
+                to:[{ email }],
+                subject:"Account Deletion Verification Code",
+                htmlContent:`
+                    <p>You requested to delete your account.</p>
+                    <p>Your verification code is:</p>
+                    <h2 style="letter-spacing:3px;">
+                        ${otp}
+                    </h2>
+                    <p>This code is valid for 5 minutes.</p>
+                    <p>If you did not request this code, please ignore this email.</p>
+                `
+            },
+            {
+                headers:{
+                    "api-key":process.env.BREVO_API_KEY,
+                    "Content-Type":"application/json"
+                },
+                timeout:10000
+            }
+        );
+        console.log("Verification code sent to:", email);
+        return res.json({
+            success:true
+        });
+    } catch(error){
+        console.log("BREVO ERROR:", error.response?.data || error.message);
+        await admin.database().ref("otp/deleteAccount/" + key).remove();
+        return res.status(500).json({
+            success:false,
+            message:"Verification code send failed"
+        });
+    }
+});
+
+
+// ---------------- VERIFY DELETE ACCOUNT OTP ----------------
+app.post("/verify-delete-account-otp", async (req,res)=>{
+    const { email, code } = req.body;
+    if(!email || !code){
+        return res.status(400).json({
+            verified:false
+        });
+    }
+    const key = email.replace(/\./g, "_");
+    const snap = await admin.database().ref("otp/deleteAccount/" + key).get();
+    const data = snap.val();
+    // invalid otp
+    if (!data || data.code !== code) {
+        return res.json({
+            verified: false,
+            message: "Invalid OTP"
+        });
+    }
+    // valid but expired 
+    if (Date.now() > data.expiresAt) {
+        return res.json({
+            verified: false,
+            message: "OTP expired"
+        });
+    }
+    // success
+    await admin.database().ref("otp/deleteAccount/" + key).remove();
+    return res.json({
+        verified: true
+    });
+});
+
+// ---------------- DELETE ACCOUNT --------------
+app.post("/delete-account", async (req, res) => {
+    const { uid, email } = req.body;
+
+    if (!uid || !email) {
+        return res.status(400).json({
+            success: false,
+            message: "Missing fields"
+        });
+    }
+
+    try {
+        // ---------------- GET USER DATA ----------------
+        const userRecord = await admin.auth().getUser(uid);
+
+        const usersRef = admin.database().ref("Ridera/users");
+
+        const snapshot = await usersRef
+            .orderByChild("uid")
+            .equalTo(uid)
+            .get();
+
+        let profileImageUrl = null;
+
+        // ---------------- DELETE USER FROM DATABASE ----------------
+        if (snapshot.exists()) {
+            const deletes = [];
+
+            snapshot.forEach((child) => {
+                profileImageUrl = child.val().photo;
+                deletes.push(child.ref.remove());
+            });
+
+            await Promise.all(deletes);
+        }
+
+        // ---------------- DELETE AUTH USER ----------------
+        await admin.auth().deleteUser(uid);
+
+        // ---------------- CLEAN USER OTP ONLY ----------------
+        const emailKey = email.replace(/\./g, "_");
+
+        await admin.database().ref("otp/email/" + emailKey).remove();
+        await admin.database().ref("otp/changeEmail/" + emailKey).remove();
+        await admin.database().ref("otp/changePassword/" + emailKey).remove();
+        await admin.database().ref("otp/deleteAccount/" + emailKey).remove();
+
+        // ---------------- DELETE PROFILE IMAGE (FIXED) ----------------
+        try {
+            if (profileImageUrl) {
+                const decodedUrl = decodeURIComponent(profileImageUrl);
+                const path = decodedUrl.split("/o/")[1]?.split("?")[0];
+
+                if (path) {
+                    await admin.storage().bucket().file(path).delete();
+                    console.log("STORAGE DELETED:", path);
+                }
+            }
+        } catch (storageErr) {
+            console.log("STORAGE DELETE ERROR:", storageErr.message);
+        }
+
+        // ---------------- EMAIL NOTIFICATION (IMPROVED) ----------------
+        await axios.post(
+            "https://api.brevo.com/v3/smtp/email",
+            {
+                sender: {
+                    name: "Ridera",
+                    email: "iot.ridera@gmail.com"
+                },
+                to: [{ email }],
+                subject: "Your Ridera Account Has Been Deleted",
+                htmlContent: `
+                    <h2>Account Deleted</h2>
+
+                    <p>Your Ridera account has been permanently deleted.</p>
+
+                    <p>If you did not perform this action, please contact our support team immediately.</p>
+
+                    <br/>
+
+                    <p>We’re sorry to see you go.</p>
+                    <p>Thank you for using Ridera.</p>
+                `
+            },
+            {
+                headers: {
+                    "api-key": process.env.BREVO_API_KEY,
+                    "Content-Type": "application/json"
+                },
+                timeout: 10000
+            }
+        );
+
+        console.log("ACCOUNT DELETED:", uid, email);
+
+        return res.json({
+            success: true,
+            message: "Account deleted successfully"
+        });
+
+    } catch (error) {
+        console.log("DELETE ACCOUNT ERROR:");
+        console.log(error.response?.data || error.message || error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Account deletion failed"
         });
     }
 });
