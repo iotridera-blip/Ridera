@@ -927,7 +927,7 @@ app.post("/verify-delete-account-otp", async (req,res)=>{
 
 // ---------------- DELETE ACCOUNT --------------
 app.post("/delete-account", async (req, res) => {
-    const { uid, email } = req.body;
+    const { uid, email, phone } = req.body;
 
     if (!uid || !email) {
         return res.status(400).json({
@@ -937,7 +937,7 @@ app.post("/delete-account", async (req, res) => {
     }
 
     try {
-        // ---------------- GET USER ----------------
+        // ---------------- GET USER DATA ----------------
         const userRecord = await admin.auth().getUser(uid);
 
         const usersRef = admin.database().ref("Ridera/users");
@@ -949,25 +949,26 @@ app.post("/delete-account", async (req, res) => {
 
         let profileImageUrl = null;
 
-        // ---------------- DELETE DB USER ----------------
-        if (snapshot.exists()) {
-            const deletes = [];
-
-            snapshot.forEach((child) => {
-                profileImageUrl = child.val().photo;
-                deletes.push(child.ref.remove());
+        // ---------------- MARK AS DELETED (REAL-TIME LOGOUT TRIGGER) ----------------
+        await usersRef
+            .orderByChild("uid")
+            .equalTo(uid)
+            .once("value", async (snap) => {
+                if (snap.exists()) {
+                    snap.forEach((child) => {
+                        child.ref.update({
+                            status: "deleted"
+                        });
+                        profileImageUrl = child.val().photo;
+                    });
+                }
             });
-
-            await Promise.all(deletes);
-        }
 
         // ---------------- DELETE AUTH USER ----------------
         await admin.auth().deleteUser(uid);
 
-        // ---------------- REVOKE ALL SESSIONS (🔥 IMPORTANT) ----------------
+        // ---------------- REVOKE SESSIONS ----------------
         await admin.auth().revokeRefreshTokens(uid);
-
-        console.log("ALL SESSIONS REVOKED:", uid);
 
         // ---------------- DELETE STORAGE IMAGE ----------------
         try {
@@ -983,15 +984,31 @@ app.post("/delete-account", async (req, res) => {
             console.log("STORAGE DELETE ERROR:", err.message);
         }
 
-        // ---------------- CLEAN OTP ----------------
+        // ---------------- CLEAN ALL OTP TYPES ----------------
         const emailKey = email.replace(/\./g, "_");
+        const phoneKey = phone ? phone.replace(/\./g, "_") : null;
 
-        await admin.database().ref("otp/email/" + emailKey).remove();
-        await admin.database().ref("otp/changeEmail/" + emailKey).remove();
-        await admin.database().ref("otp/changePassword/" + emailKey).remove();
-        await admin.database().ref("otp/deleteAccount/" + emailKey).remove();
+        const otpPaths = [
+            "otp/email/",
+            "otp/phone/",
+            "otp/changeEmail/",
+            "otp/changePhone/",
+            "otp/changePassword/",
+            "otp/forgotPassword/",
+            "otp/deleteAccount/"
+        ];
 
-        // ---------------- EMAIL ----------------
+        for (const path of otpPaths) {
+            await admin.database().ref(path + emailKey).remove();
+        }
+
+        if (phoneKey) {
+            for (const path of otpPaths) {
+                await admin.database().ref(path + phoneKey).remove();
+            }
+        }
+
+        // ---------------- EMAIL NOTIFICATION ----------------
         await axios.post(
             "https://api.brevo.com/v3/smtp/email",
             {
@@ -1002,9 +1019,9 @@ app.post("/delete-account", async (req, res) => {
                 to: [{ email }],
                 subject: "Account Deleted",
                 htmlContent: `
-                    <h2>Account Deleted</h2>
                     <p>Your Ridera account has been permanently deleted.</p>
-                    <p>If this wasn't you, contact support immediately.</p>
+                    <br>
+                    <p>Thank you for using Ridera.</p>
                 `
             },
             {
@@ -1015,7 +1032,7 @@ app.post("/delete-account", async (req, res) => {
             }
         );
 
-        console.log("ACCOUNT DELETED:", uid, email);
+        console.log("ACCOUNT DELETED:", uid);
 
         return res.json({
             success: true,
