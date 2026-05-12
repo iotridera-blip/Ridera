@@ -937,7 +937,7 @@ app.post("/delete-account", async (req, res) => {
     }
 
     try {
-        // ---------------- GET USER DATA ----------------
+        // ---------------- GET USER ----------------
         const userRecord = await admin.auth().getUser(uid);
 
         const usersRef = admin.database().ref("Ridera/users");
@@ -949,7 +949,7 @@ app.post("/delete-account", async (req, res) => {
 
         let profileImageUrl = null;
 
-        // ---------------- DELETE USER FROM DATABASE ----------------
+        // ---------------- DELETE DB USER ----------------
         if (snapshot.exists()) {
             const deletes = [];
 
@@ -964,7 +964,26 @@ app.post("/delete-account", async (req, res) => {
         // ---------------- DELETE AUTH USER ----------------
         await admin.auth().deleteUser(uid);
 
-        // ---------------- CLEAN USER OTP ONLY ----------------
+        // ---------------- REVOKE ALL SESSIONS (🔥 IMPORTANT) ----------------
+        await admin.auth().revokeRefreshTokens(uid);
+
+        console.log("ALL SESSIONS REVOKED:", uid);
+
+        // ---------------- DELETE STORAGE IMAGE ----------------
+        try {
+            if (profileImageUrl && profileImageUrl.includes("/o/")) {
+                const decodedUrl = decodeURIComponent(profileImageUrl);
+                const path = decodedUrl.split("/o/")[1]?.split("?")[0];
+
+                if (path) {
+                    await admin.storage().bucket().file(path).delete();
+                }
+            }
+        } catch (err) {
+            console.log("STORAGE DELETE ERROR:", err.message);
+        }
+
+        // ---------------- CLEAN OTP ----------------
         const emailKey = email.replace(/\./g, "_");
 
         await admin.database().ref("otp/email/" + emailKey).remove();
@@ -972,22 +991,7 @@ app.post("/delete-account", async (req, res) => {
         await admin.database().ref("otp/changePassword/" + emailKey).remove();
         await admin.database().ref("otp/deleteAccount/" + emailKey).remove();
 
-        // ---------------- DELETE PROFILE IMAGE (FIXED) ----------------
-        try {
-            if (profileImageUrl) {
-                const decodedUrl = decodeURIComponent(profileImageUrl);
-                const path = decodedUrl.split("/o/")[1]?.split("?")[0];
-
-                if (path) {
-                    await admin.storage().bucket().file(path).delete();
-                    console.log("STORAGE DELETED:", path);
-                }
-            }
-        } catch (storageErr) {
-            console.log("STORAGE DELETE ERROR:", storageErr.message);
-        }
-
-        // ---------------- EMAIL NOTIFICATION (IMPROVED) ----------------
+        // ---------------- EMAIL ----------------
         await axios.post(
             "https://api.brevo.com/v3/smtp/email",
             {
@@ -996,26 +1000,18 @@ app.post("/delete-account", async (req, res) => {
                     email: "iot.ridera@gmail.com"
                 },
                 to: [{ email }],
-                subject: "Your Ridera Account Has Been Deleted",
+                subject: "Account Deleted",
                 htmlContent: `
                     <h2>Account Deleted</h2>
-
                     <p>Your Ridera account has been permanently deleted.</p>
-
-                    <p>If you did not perform this action, please contact our support team immediately.</p>
-
-                    <br/>
-
-                    <p>We’re sorry to see you go.</p>
-                    <p>Thank you for using Ridera.</p>
+                    <p>If this wasn't you, contact support immediately.</p>
                 `
             },
             {
                 headers: {
                     "api-key": process.env.BREVO_API_KEY,
                     "Content-Type": "application/json"
-                },
-                timeout: 10000
+                }
             }
         );
 
@@ -1023,16 +1019,15 @@ app.post("/delete-account", async (req, res) => {
 
         return res.json({
             success: true,
-            message: "Account deleted successfully"
+            message: "Account deleted"
         });
 
     } catch (error) {
-        console.log("DELETE ACCOUNT ERROR:");
-        console.log(error.response?.data || error.message || error);
+        console.log("DELETE ERROR:", error.message);
 
         return res.status(500).json({
             success: false,
-            message: "Account deletion failed"
+            message: "Delete failed"
         });
     }
 });
