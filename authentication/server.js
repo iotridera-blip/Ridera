@@ -136,20 +136,18 @@ app.post("/send-phone-otp", async (req,res)=>{
         expiresAt: Date.now() + 5 * 60 * 1000
     });
     try{
-        const message =
-            encodeURIComponent(
-                `Your Ridera Verification code is ${otp}. This code is valid for 5 minutes.`
-            );
-        const url =
-            `https://www.iprogsms.com/api/v1/sms_messages` +
-            `?api_token=${process.env.IPROG_API_TOKEN}` +
-            `&message=${message}` +
-            `&phone_number=${phone}`;
-        // same as your curl uses POST
         await axios.post(
-            url,
-            null,
+            "https://api.semaphore.co/api/v4/messages",
             {
+                apikey: process.env.SEMAPHORE_API_KEY,
+                number: phone,
+                message: `Your Ridera Verification code is ${otp}. This code is valid for 5 minutes.`,
+                sendername: "RIDERA"
+            },
+            {
+                headers:{
+                "Content-Type":"application/json"
+            },
                 timeout:10000
             }
         );
@@ -158,7 +156,7 @@ app.post("/send-phone-otp", async (req,res)=>{
             success:true
         });
     }catch(error){
-        console.log("IPROG SMS ERROR:", error.response?.data || error.message);
+        console.log("SEMAPHORE ERROR:", error.response?.data || error.message);
         await admin.database().ref("otp/phone/" + key).remove();
         return res.status(500).json({
             success:false
@@ -406,20 +404,18 @@ app.post("/send-change-phone-otp", async (req,res)=>{
         expiresAt: Date.now() + 5 * 60 * 1000
     });
     try{
-        const message =
-            encodeURIComponent(
-                `Your Ridera change phone number verification code is ${otp}. This code is valid for 5 minutes.`
-            );
-        const url =
-            `https://www.iprogsms.com/api/v1/sms_messages` +
-            `?api_token=${process.env.IPROG_API_TOKEN}` +
-            `&message=${message}` +
-            `&phone_number=${phone}`;
-        // same as your curl uses POST
         await axios.post(
-            url,
-            null,
+            "https://api.semaphore.co/api/v4/messages",
             {
+                apikey: process.env.SEMAPHORE_API_KEY,
+                number: phone,
+                message: `Your Ridera change phone number verification code is ${otp}. This code is valid for 5 minutes.`,
+                sendername: "RIDERA"
+            },
+            {
+                headers:{
+                "Content-Type":"application/json"
+            },
                 timeout:10000
             }
         );
@@ -428,7 +424,7 @@ app.post("/send-change-phone-otp", async (req,res)=>{
             success:true
         });
     }catch(error){
-        console.log("IPROG SMS ERROR:", error.response?.data || error.message);
+        console.log("SEMAPHORE ERROR:", error.response?.data || error.message);
         await admin.database().ref("otp/changePhone/" + key).remove();
         return res.status(500).json({
             success:false
@@ -500,26 +496,38 @@ app.post("/change-phone", async (req, res) => {
         }
         // ---------------- SMS TO OLD NUMBER ----------------
         if (previousPhone) {
-            const msg1 = encodeURIComponent(
-                `Your Ridera phone number was changed to ${newPhone}. If this wasn't you, secure your account immediately.`
+            await axios.post(
+                "https://api.semaphore.co/api/v4/messages",
+                {
+                    apikey: process.env.SEMAPHORE_API_KEY,
+                    number: previousPhone,
+                    message: `Your Ridera phone number was changed to ${newPhone}. If this wasn't you, secure your account immediately.`,
+                    sendername: "RIDERA"
+                },
+                {
+                    headers:{
+                        "Content-Type":"application/json"
+                    },
+                    timeout:10000
+                }
             );
-            const url1 =
-                `https://www.iprogsms.com/api/v1/sms_messages` +
-                `?api_token=${process.env.IPROG_API_TOKEN}` +
-                `&message=${msg1}` +
-                `&phone_number=${previousPhone}`;
-            await axios.post(url1);
         }
         // ---------------- SMS TO NEW NUMBER ----------------
-        const msg2 = encodeURIComponent(
-            `Your Ridera phone number has been updated successfully.`
+        await axios.post(
+            "https://api.semaphore.co/api/v4/messages",
+            {
+                apikey: process.env.SEMAPHORE_API_KEY,
+                number: newPhone,
+                message: `Your Ridera phone number has been updated successfully.`,
+                sendername: "RIDERA"
+            },
+            {
+                headers:{
+                    "Content-Type":"application/json"
+                },
+                timeout:10000
+            }
         );
-        const url2 =
-            `https://www.iprogsms.com/api/v1/sms_messages` +
-            `?api_token=${process.env.IPROG_API_TOKEN}` +
-            `&message=${msg2}` +
-            `&phone_number=${newPhone}`;
-        await axios.post(url2);
         console.log("PHONE UPDATED + SMS SENT:", uid);
         return res.json({
             success: true,
@@ -537,7 +545,7 @@ app.post("/change-phone", async (req, res) => {
     }
 });
 
-// ---------------- SEND CHANGE PASSWORD OTP ----------------
+// ---------------- SEND CHANGE PASSWORD OTP ----------------3
 app.post("/send-change-password-otp", async (req, res) => {
     const { email } = req.body;
     if (!email) {
