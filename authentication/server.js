@@ -142,7 +142,7 @@ app.post("/send-phone-otp", async (req,res)=>{
                 apikey: process.env.SEMAPHORE_API_KEY,
                 number: phone,
                 message: `Your Ridera Verification code is ${otp}. This code is valid for 5 minutes.`,
-                sendername: "SEMAPHORE"
+                sendername: "RIDERA"
             },
             {
                 headers:{
