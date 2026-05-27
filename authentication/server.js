@@ -137,7 +137,7 @@ app.post("/send-phone-otp", async (req,res)=>{
     });
     try{
         await axios.post(
-            "https://api.semaphore.co/api/v4/messages",
+            "https://api.semaphore.co/api/v4/otp",
             {
                 apikey: process.env.SEMAPHORE_API_KEY,
                 number: phone,
@@ -405,7 +405,7 @@ app.post("/send-change-phone-otp", async (req,res)=>{
     });
     try{
         await axios.post(
-            "https://api.semaphore.co/api/v4/messages",
+            "https://api.semaphore.co/api/v4/otp",
             {
                 apikey: process.env.SEMAPHORE_API_KEY,
                 number: phone,
@@ -497,7 +497,7 @@ app.post("/change-phone", async (req, res) => {
         // ---------------- SMS TO OLD NUMBER ----------------
         if (previousPhone) {
             await axios.post(
-                "https://api.semaphore.co/api/v4/messages",
+                "https://api.semaphore.co/api/v4/priority",
                 {
                     apikey: process.env.SEMAPHORE_API_KEY,
                     number: previousPhone,
@@ -514,7 +514,7 @@ app.post("/change-phone", async (req, res) => {
         }
         // ---------------- SMS TO NEW NUMBER ----------------
         await axios.post(
-            "https://api.semaphore.co/api/v4/messages",
+            "https://api.semaphore.co/api/v4/priority",
             {
                 apikey: process.env.SEMAPHORE_API_KEY,
                 number: newPhone,
