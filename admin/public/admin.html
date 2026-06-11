@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ridera Admin — AdminEmergency Panel</title>
+
+    <!-- Exact same fonts + icons as responder dashboard -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+    <!-- SAME stylesheet as responder dashboard — 100% design continuity -->
+    <link rel="stylesheet" href="css/style.css" />
+
+    <!-- Admin-only additions: form inputs, confirm modal, user avatar, table actions -->
+    <!-- These EXTEND the existing CSS, never override it -->
+    <style>
+        .admin-input {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            padding: 9px 13px;
+            color: var(--text);
+            font-size: 13px;
+            font-family: inherit;
+            width: 100%;
+            transition: border-color .15s;
+        }
+
+        .admin-input:focus {
+            outline: none;
+            border-color: #4a4a55;
+        }
+
+        .admin-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        textarea.admin-input {
+            resize: vertical;
+            min-height: 80px;
+            line-height: 1.5;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-label {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: .07em;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            padding-top: 10px;
+            margin-top: 6px;
+            border-top: 1px solid var(--border);
+        }
+
+        .user-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: var(--panel-2);
+            border: 2px solid var(--border);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 15px;
+            flex-shrink: 0;
+        }
+
+        .user-avatar-img {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .td-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .td-user strong {
+            display: block;
+        }
+
+        .td-sub {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            margin-top: 1px;
+        }
+
+        .dash-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .confirm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, .65);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .confirm-overlay.show {
+            display: flex;
+        }
+
+        .confirm-box {
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px 30px;
+            max-width: 380px;
+            width: 90%;
+            box-shadow: var(--shadow);
+            animation: fade .2s ease;
+        }
+
+        .confirm-box h3 {
+            font-size: 17px;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+
+        .confirm-box p {
+            color: var(--text-muted);
+            font-size: 13.5px;
+            margin-bottom: 22px;
+            line-height: 1.5;
+        }
+
+        .confirm-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .detail-photo {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .detail-photo-wrap {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 16px 18px;
+            margin-bottom: 16px;
+        }
+
+        .detail-photo-info strong {
+            font-size: 16px;
+            display: block;
+        }
+
+        .detail-photo-info span {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .tbl-actions {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .btn-icon {
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            transition: background .12s;
+        }
+
+        .btn-icon:hover {
+            background: #1f1f25;
+        }
+
+        .btn-icon.btn-icon-danger {
+            color: var(--high);
+        }
+
+        .btn-icon.btn-icon-danger:hover {
+            background: rgba(239, 68, 68, .1);
+        }
+
+        @media (max-width:900px) {
+            .dash-grid-3 {
+                grid-template-columns: 1fr;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-shell">
+
+        <!-- ================================================================
+         SIDEBAR — identical structure to responder dashboard
+         ================================================================ -->
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-logo"><i class="fas fa-shield-halved"></i></div>
+                <div class="brand-text">
+                    <div class="brand-name">Ridera Admin</div>
+                    <div class="brand-sub">Admin </div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-item active" id="nav-admin-dashboard" data-page="admin-dashboard">
+                    <i class="fas fa-table-cells-large"></i><span>Dashboard</span>
+                </button>
+                <button class="nav-item" id="nav-admin-users" data-page="admin-users">
+                    <i class="fas fa-users"></i><span>Users</span>
+                    <span class="nav-badge" id="usersBadge" style="display:none">0</span>
+                </button>
+                <button class="nav-item" id="nav-admin-devices" data-page="admin-devices">
+                    <i class="fas fa-microchip"></i><span>Devices</span>
+                    <span class="nav-badge" id="devicesBadge" style="display:none">0</span>
+                </button>
+                <button class="nav-item" id="nav-admin-responders" data-page="admin-responders">
+                    <i class="fas fa-user-shield"></i><span>Responders</span>
+                    <span class="nav-badge" id="respondersBadge" style="display:none">0</span>
+                </button>
+                <button class="nav-item" id="nav-admin-settings" data-page="admin-settings">
+                    <i class="fas fa-gear"></i><span>Settings</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">v1.0 · Admin Panel</div>
+        </aside>
+
+        <!-- ================================================================
+         MAIN
+         ================================================================ -->
+        <div class="main">
+
+            <!-- TOP BAR — same as responder dashboard -->
+            <header class="topbar">
+                <button class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></button>
+                <div class="sys-status">
+                    <i class="fas fa-tower-broadcast"></i>
+                    <span>Admin Console:</span>
+                    <span id="statusBadge" class="status-badge online">
+                        <span class="status-dot"></span><span>CONNECTED</span>
+                    </span>
+                </div>
+                <div class="topbar-right">
+                    <div class="hdr-clock">
+                        <span id="headerDate">—</span>
+                        <strong id="headerTime">—</strong>
+                    </div>
+                    <button class="btn btn-ghost" id="refreshBtn">
+                        <i class="fas fa-arrows-rotate"></i><span>Refresh</span>
+                    </button>
+                    <button class="btn btn-danger" id="logoutBtn">
+                        <i class="fas fa-right-from-bracket"></i><span>Sign Out</span>
+                    </button>
+                </div>
+            </header>
+
+            <main class="content">
+
+                <!-- ====================================================
+                 DASHBOARD OVERVIEW
+                 ==================================================== -->
+                <section id="adminDashPage" class="page active-page">
+                    <div class="page-head">
+                        <h1>Admin Dashboard</h1>
+                        <p>System overview — Ridera AdminEmergency Panel</p>
+                    </div>
+
+                    <!-- Stat cards (same pcard component, admin colours) -->
+                    <div class="dash-grid-3">
+                        <div class="pcard" style="border-color:rgba(59,130,246,.5);background:rgba(59,130,246,.05)">
+                            <div class="pcard-label">
+                                <span class="dot" style="background:#3b82f6"></span> Registered Users
+                            </div>
+                            <div class="pcard-num" id="statTotalUsers">—</div>
+                            <div class="pcard-desc">Total riders in the system</div>
+                        </div>
+                        <div class="pcard pcard-medium">
+                            <div class="pcard-label"><span class="dot dot-medium"></span> Registered Devices</div>
+                            <div class="pcard-num" id="statTotalDevices">—</div>
+                            <div class="pcard-desc">Ridera crash detection units</div>
+                        </div>
+                        <div class="pcard pcard-low">
+                            <div class="pcard-label"><span class="dot dot-low"></span> Emergency Responders</div>
+                            <div class="pcard-num" id="statTotalResponders">—</div>
+                            <div class="pcard-desc">Authorized Responders</div>
+                        </div>
+                    </div>
+
+                    <!-- Recent registrations + quick stats (same dash-grid) -->
+                    <div class="dash-grid">
+                        <div class="panel">
+                            <div class="panel-head">
+                                <div class="panel-title"><i class="fas fa-users"></i> Recent User Registrations</div>
+                                <button class="link-btn" data-page="admin-users">
+                                    View all <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                            <div class="panel-body" style="padding:0">
+                                <table class="history-table" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th>Rider</th>
+                                            <th>Vehicle</th>
+                                            <th>Device</th>
+                                            <th>Joined</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recentUsersBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="panel">
+                            <div class="panel-head">
+                                <div class="panel-title"><i class="fas fa-chart-line"></i> Quick Statistics</div>
+                            </div>
+                            <div class="panel-body">
+                                <div class="stat-row">
+                                    <span>Online Devices</span>
+                                    <strong id="statOnlineDevices" class="stat-danger">—</strong>
+                                </div>
+                                <div class="stat-row">
+                                    <span>Bound Users</span>
+                                    <strong id="statBoundUsers">—</strong>
+                                </div>
+                                <div class="stat-row">
+                                    <span>Active Responders</span>
+                                    <strong id="statActiveResponders">—</strong>
+                                </div>
+                                <div class="stat-row">
+                                    <span>On-Duty Responders</span>
+                                    <strong id="statOnDutyResponders">—</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ====================================================
+                 USER MANAGEMENT
+                 ==================================================== -->
+                <section id="adminUsersPage" class="page">
+                    <div class="page-head row-head">
+                        <div>
+                            <h1>User Management</h1>
+                            <p>Manage registered Ridera riders.</p>
+                        </div>
+                        <div class="history-tools">
+                            <div class="search-box">
+                                <i class="fas fa-magnifying-glass"></i>
+                                <input id="userSearch" type="text" placeholder="Search name, phone, plate..." />
+                            </div>
+                            <select id="userStatusFilter" class="select">
+                                <option value="">All users</option>
+                                <option value="bound">Bound to device</option>
+                                <option value="unbound">No device</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Rider</th>
+                                    <th>Phone</th>
+                                    <th>Vehicle</th>
+                                    <th>Plate</th>
+                                    <th>Device</th>
+                                    <th>Joined</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="usersPagination" class="pagination" style="margin-top:16px"></div>
+                </section>
+
+                <!-- ====================================================
+                 DEVICE MANAGEMENT
+                 ==================================================== -->
+                <section id="adminDevicesPage" class="page">
+                    <div class="page-head row-head">
+                        <div>
+                            <h1>Device Management</h1>
+                            <p>Monitor and manage Ridera crash detection units.</p>
+                        </div>
+                        <div class="history-tools">
+                            <div class="search-box">
+                                <i class="fas fa-magnifying-glass"></i>
+                                <input id="deviceSearch" type="text" placeholder="Search device ID, user..." />
+                            </div>
+                            <select id="deviceStatusFilter" class="select">
+                                <option value="">All devices</option>
+                                <option value="online">Online</option>
+                                <option value="offline">Offline</option>
+                                <option value="bound">Bound</option>
+                                <option value="unbound">Unbound</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Device ID</th>
+                                    <th>Status</th>
+                                    <th>Bound User</th>
+                                    <th>Last Seen</th>
+                                    <th>Location</th>
+                                    <th>Speed</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="devicesTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="devicesPagination" class="pagination" style="margin-top:16px"></div>
+                </section>
+
+                <!-- ====================================================
+                 RESPONDER MANAGEMENT
+                 ==================================================== -->
+                <section id="adminRespondersPage" class="page">
+                    <div class="page-head row-head">
+                        <div>
+                            <h1>Emergency Responders</h1>
+                            <p>Manage authorized Responders</p>
+                        </div>
+                        <div class="history-tools">
+                            <div class="search-box">
+                                <i class="fas fa-magnifying-glass"></i>
+                                <input id="responderSearch" type="text" placeholder="Search username, agency..." />
+                            </div>
+                            <button class="btn btn-danger" id="addResponderBtn">
+                                <i class="fas fa-plus"></i><span>Add Responder</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Agency</th>
+                                    <th>Station</th>
+                                    <th>Role</th>
+                                    <th>Active</th>
+                                    <th>On Duty</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="respondersTableBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- ====================================================
+                 ACCOUNT SETTINGS
+                 ==================================================== -->
+                <section id="adminSettingsPage" class="page">
+                    <div class="page-head">
+                        <h1>Account Settings</h1>
+                        <p>Manage your admin profile and credentials.</p>
+                    </div>
+
+                    <!-- Profile -->
+                    <div class="settings-card" style="max-width:680px;margin-bottom:18px;overflow:visible">
+                        <div style="padding:16px 20px 14px;border-bottom:1px solid var(--border)">
+                            <div class="panel-title"><i class="fas fa-user"></i> Admin Profile</div>
+                        </div>
+                        <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Username</label>
+                                    <input id="settUsername" class="admin-input" type="text" />
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Phone</label>
+                                    <input id="settPhone" class="admin-input" type="text" />
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Agency Name</label>
+                                    <input id="settAgency" class="admin-input" type="text" />
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Station Name</label>
+                                    <input id="settStation" class="admin-input" type="text" />
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Coverage Area</label>
+                                    <input id="settCoverage" class="admin-input" type="text" />
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Role</label>
+                                    <select id="settRole" class="admin-input select">
+                                        <option value="admin">admin</option>
+                                        <option value="dispatcher">dispatcher</option>
+                                        <option value="supervisor">supervisor</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Address</label>
+                                <input id="settAddress" class="admin-input" type="text" />
+                            </div>
+                            <div class="form-actions">
+                                <button class="btn btn-danger" id="saveProfileBtn">
+                                    <i class="fas fa-floppy-disk"></i> Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Change password -->
+                    <div class="settings-card" style="max-width:680px;margin-bottom:18px;overflow:visible">
+                        <div style="padding:16px 20px 14px;border-bottom:1px solid var(--border)">
+                            <div class="panel-title"><i class="fas fa-lock"></i> Change Password</div>
+                        </div>
+                        <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+                            <div class="form-group">
+                                <label class="form-label">Current Password</label>
+                                <input id="settCurrentPw" class="admin-input" type="password" placeholder="••••••••" />
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">New Password</label>
+                                    <input id="settNewPw" class="admin-input" type="password" placeholder="••••••••" />
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Confirm New Password</label>
+                                    <input id="settConfirmPw" class="admin-input" type="password"
+                                        placeholder="••••••••" />
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button class="btn btn-danger" id="changePasswordBtn">
+                                    <i class="fas fa-key"></i> Change Password
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Logout -->
+                    <div class="settings-card" style="max-width:680px">
+                        <div class="setting-row">
+                            <div>
+                                <div class="setting-title">Sign Out</div>
+                                <div class="setting-desc">End your admin session and return to the login page.</div>
+                            </div>
+                            <button class="btn btn-danger" id="settLogout">
+                                <i class="fas fa-right-from-bracket"></i><span>Sign Out</span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- ================================================================
+     ADMIN DRAWER — same as responder dashboard drawer
+     ================================================================ -->
+    <div id="adminDrawerOverlay" class="drawer-overlay"></div>
+    <aside id="adminDrawer" class="drawer" role="dialog" aria-label="Admin detail panel">
+        <button id="adminCloseDrawer" class="drawer-close" aria-label="Close">
+            <i class="fas fa-xmark"></i>
+        </button>
+        <div id="adminDrawerContent" class="drawer-content"></div>
+    </aside>
+
+    <!-- ================================================================
+     DELETE CONFIRMATION MODAL
+     ================================================================ -->
+    <div id="confirmOverlay" class="confirm-overlay">
+        <div class="confirm-box">
+            <h3 id="confirmTitle">Delete Record</h3>
+            <p id="confirmMessage">Are you sure? This action cannot be undone.</p>
+            <div class="confirm-actions">
+                <button class="btn btn-ghost" id="confirmCancel">Cancel</button>
+                <button class="btn btn-danger" id="confirmOk">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================
+     TOASTS — same container as responder dashboard
+     ================================================================ -->
+    <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
+
+    <!-- ================================================================
+     SCRIPTS
+     ================================================================ -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+
+</html>

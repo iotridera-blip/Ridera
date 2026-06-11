@@ -1,0 +1,45 @@
+# ============================================================
+# RIDERA RESPONDER SERVER — ENVIRONMENT VARIABLES
+# ============================================================
+# Copy this file to .env and fill in your actual values
+# Never commit .env to version control
+# ============================================================
+
+# ============================================================
+# SERVER CONFIG
+# ============================================================
+PORT=3000
+NODE_ENV=development
+SESSION_SECRET=your-super-secret-session-key-change-this-in-production
+
+# ============================================================
+# FIREBASE ADMIN SDK
+# ============================================================
+# Option 1: Path to service account key JSON file
+# Get from: Firebase Console → Project Settings → Service Accounts → Generate New Private Key
+FIREBASE_SERVICE_ACCOUNT_KEY=/path/to/service-account-key.json
+
+# Option 2: Individual environment variables (alternative to FIREBASE_SERVICE_ACCOUNT_KEY)
+# Only use if you can't use the JSON file approach (e.g., on Render, Heroku)
+# FIREBASE_PROJECT_ID=ridera-dg7
+# FIREBASE_PRIVATE_KEY_ID=your-private-key-id
+# FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+# FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxx@ridera-dg7.iam.gserviceaccount.com
+# FIREBASE_CLIENT_ID=your-client-id
+
+# ============================================================
+# GOOGLE MAPS (optional, if using server-side map rendering)
+# ============================================================
+GOOGLE_MAPS_API_KEY=your-google-maps-api-key
+
+# ============================================================
+# LOGGING
+# ============================================================
+LOG_LEVEL=info
+
+# ============================================================
+# SECURITY (Production)
+# ============================================================
+# HTTPS_ENABLED=true
+# SSL_CERT_PATH=/path/to/cert.pem
+# SSL_KEY_PATH=/path/to/key.pem
