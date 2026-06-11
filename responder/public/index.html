@@ -3,12 +3,31 @@
 
 <head>
     <script>
-        // Instant auth check — tumatakbo BAGO mag-render ang page
-        // para walang flash ng dashboard kapag hindi naka-login.
-        if (!sessionStorage.getItem('ridera_responder')) {
-            document.documentElement.style.display = 'none';
-            window.location.replace('login.html');
-        }
+        // Instant auth check — tumatakbo BAGO mag-render ang page para
+        // walang flash ng dashboard kapag hindi naka-login.
+        // Checks BOTH sessionStorage (normal login) and localStorage
+        // (Remember Me) + validates the 30-day expiry.
+        (function () {
+            var ok = false;
+            try {
+                var raw = sessionStorage.getItem('ridera_responder') ||
+                    localStorage.getItem('ridera_responder');
+                if (raw) {
+                    var s = JSON.parse(raw);
+                    if (s && s.username &&
+                        !(s.expiresAt && Date.now() > s.expiresAt)) {
+                        ok = true;
+                    }
+                }
+            } catch (e) { ok = false; }
+
+            if (!ok) {
+                sessionStorage.removeItem('ridera_responder');
+                localStorage.removeItem('ridera_responder');
+                document.documentElement.style.display = 'none';
+                window.location.replace('login.html');
+            }
+        })();
     </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
