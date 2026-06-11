@@ -10,10 +10,25 @@ CDRRMO Dasmariñas Emergency Operations Dashboard
 // AUTH GUARD — must be logged in via login.html
 // Session is created by login.html after verifying the account
 // against Ridera/authorized_emergency_responder in Firebase.
+// Supports both sessionStorage (normal login — clears on browser
+// close) and localStorage (Remember Me — valid for 30 days).
 // ============================================================
 const RESPONDER_SESSION = (() => {
     try {
-        return JSON.parse(sessionStorage.getItem('ridera_responder'));
+        const raw =
+            sessionStorage.getItem('ridera_responder') ||
+            localStorage.getItem('ridera_responder');
+        if (!raw) return null;
+
+        const s = JSON.parse(raw);
+
+        // Expired Remember Me session → treat as logged out
+        if (s && s.expiresAt && Date.now() > s.expiresAt) {
+            sessionStorage.removeItem('ridera_responder');
+            localStorage.removeItem('ridera_responder');
+            return null;
+        }
+        return s;
     } catch (e) {
         return null;
     }
@@ -27,6 +42,7 @@ if (!RESPONDER_SESSION || !RESPONDER_SESSION.username) {
 function logoutResponder() {
     const redirect = () => {
         sessionStorage.removeItem('ridera_responder');
+        localStorage.removeItem('ridera_responder');
         window.location.replace('login.html');
     };
 
