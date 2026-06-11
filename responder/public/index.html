@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ridera Responder — Emergency Responder</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+    <!-- Google Maps JavaScript API -->
+    <!-- Palitan ang YOUR_GOOGLE_MAPS_API_KEY ng iyong key mula sa Google Cloud Console -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAR3vS8iedLfq5bUj9spC0qUfsvaeIXPWI" defer></script>
+
+    <!-- App styles -->
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body>
+    <div class="app-shell">
+
+        <!-- ============================================================ -->
+        <!-- SIDEBAR -->
+        <!-- ============================================================ -->
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-logo">
+                    <img src="https://raw.githubusercontent.com/iotridera/Ridera/refs/heads/main/images/ridera_dark_icon.png" alt="Ridera Logo">
+                </div>
+                <div class="brand-text">
+                    <div class="brand-name">Ridera Responder</div>
+                    <div class="brand-sub"></div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-item active" id="nav-dashboard" data-page="dashboard">
+                    <i class="fas fa-table-cells-large"></i><span>Dashboard</span>
+                </button>
+                <button class="nav-item" id="nav-map" data-page="map">
+                    <i class="fas fa-map"></i><span>Live Map</span>
+                </button>
+                <button class="nav-item" id="nav-alerts" data-page="alerts">
+                    <i class="fas fa-bell"></i><span>Active Alerts</span>
+                    <span class="nav-badge" id="alertsBadge" style="display:none;">0</span>
+                </button>
+                <button class="nav-item" id="nav-history" data-page="history">
+                    <i class="fas fa-clock-rotate-left"></i><span>Alert History</span>
+                </button>
+                <button class="nav-item" id="nav-updates" data-page="updates">
+                    <i class="fas fa-comment-dots"></i><span>Rider Updates</span>
+                    <span class="nav-badge" id="updatesBadge" style="display:none;">0</span>
+                </button>
+                <button class="nav-item" id="nav-settings" data-page="settings">
+                    <i class="fas fa-gear"></i><span>Settings</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">v1.0 · Operations</div>
+        </aside>
+
+        <!-- ============================================================ -->
+        <!-- MAIN -->
+        <!-- ============================================================ -->
+        <div class="main">
+
+            <!-- TOP BAR -->
+            <header class="topbar">
+                <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
+                    <i class="fas fa-bars"></i>
+                </button>
+
+                <div class="sys-status">
+                    <i class="fas fa-tower-broadcast"></i>
+                    <span>System Status:</span>
+                    <span id="statusBadge" class="status-badge online">
+                        <span class="status-dot"></span><span>ONLINE</span>
+                    </span>
+                </div>
+
+                <div class="topbar-right">
+                    <div class="hdr-pills">
+                        <span class="hdr-pill pill-high">HIGH <strong id="highCount">0</strong></span>
+                        <span class="hdr-pill pill-medium">LOW <strong id="mediumCount">0</strong></span>
+                    </div>
+
+                    <div class="hdr-clock">
+                        <span id="headerDate">—</span>
+                        <strong id="headerTime">—</strong>
+                    </div>
+
+                    <button class="btn btn-ghost" id="refreshBtn">
+                        <i class="fas fa-arrows-rotate"></i><span>Refresh</span>
+                    </button>
+                    <button class="btn btn-danger" id="logoutBtn">
+                        <i class="fas fa-right-from-bracket"></i><span>Sign Out</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- CONTENT -->
+            <main class="content">
+
+                <!-- ============================ DASHBOARD ============================ -->
+                <section id="dashboardPage" class="page active-page">
+
+                    <div class="high-banner" id="highBanner" style="display:none;">
+                        <div class="high-banner-left">
+                            <i class="fas fa-triangle-exclamation"></i>
+                            <span><strong>HIGH PRIORITY:</strong> Unacknowledged crash require immediate
+                                dispatch.</span>
+                        </div>
+                        <button class="btn btn-danger" id="bannerRespond" data-page="alerts">Respond now</button>
+                    </div>
+
+                    <div class="page-head">
+                        <h1>Operations Dashboard</h1>
+                        <p>Realtime motorcycle crash monitoring.</p>
+                    </div>
+
+                    <div class="priority-cards">
+                        <div class="pcard pcard-high" id="dashHighCard">
+                            <div class="pcard-label"><span class="dot dot-high"></span> High Priority</div>
+                            <div class="pcard-num" id="dashboardHigh">0</div>
+                            <div class="pcard-desc">Speed ≥ 30 km/h · Dispatch immediately</div>
+                        </div>
+                        <div class="pcard pcard-medium">
+                            <div class="pcard-label"><span class="dot dot-medium"></span> Low Priority</div>
+                            <div class="pcard-num" id="dashboardMedium">0</div>
+                            <div class="pcard-desc">Speed &lt; 30 km/h · Verify rider condition</div>
+                        </div>
+                    </div>
+
+                    <div class="dash-grid">
+                        <div class="panel">
+                            <div class="panel-head">
+                                <div class="panel-title"><i class="fas fa-bell"></i> Recent Active Alerts</div>
+                                <button class="link-btn" data-page="alerts">View all <i
+                                        class="fas fa-arrow-right"></i></button>
+                            </div>
+                            <div class="panel-body" id="recentAlerts"></div>
+                        </div>
+
+                        <div class="panel">
+                            <div class="panel-head">
+                                <div class="panel-title"><i class="fas fa-chart-line"></i> Quick Statistics</div>
+                            </div>
+                            <div class="panel-body">
+                                <div class="stat-row"><span>Active incidents</span><strong id="statActive">0</strong>
+                                </div>
+                                <div class="stat-row"><span>Resolved today</span><strong id="statResolved">0</strong>
+                                </div>
+                                <div class="stat-row"><span>Unacknowledged HIGH</span><strong id="statUnackedHigh"
+                                        class="stat-danger">0</strong></div>
+                            </div>
+                            <span class="hidden" id="activeIncidentCount"></span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============================ LIVE MAP ============================ -->
+                <section id="mapPage" class="page">
+                    <div class="map-layout">
+                        <div id="map" class="map-canvas"></div>
+                        <div class="map-side">
+                            <div class="map-side-head">
+                                <h2>Incidents on map</h2>
+                                <p>Click a marker or an entry below.</p>
+                            </div>
+                            <div id="mapIncidentList" class="map-side-list"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============================ ACTIVE ALERTS ============================ -->
+                <section id="alertsPage" class="page">
+                    <div class="page-head row-head">
+                        <div>
+                            <h1>Active Alerts</h1>
+                            <p><span id="alertsActiveCount">0</span> incidents currently active.</p>
+                        </div>
+                        <div class="filter-tabs" id="alertFilters">
+                            <button class="filter-tab active" data-filter="ALL">All</button>
+                            <button class="filter-tab" data-filter="HIGH">High</button>
+                            <button class="filter-tab" data-filter="MEDIUM">Low</button>
+                        </div>
+                    </div>
+                    <div id="alertsContainer" class="alerts-grid"></div>
+                </section>
+
+                <!-- ============================ ALERT HISTORY ============================ -->
+                <section id="historyPage" class="page">
+                    <div class="page-head row-head">
+                        <div>
+                            <h1>Alert History</h1>
+                            <p>Resolved incidents log.</p>
+                        </div>
+                        <div class="history-tools">
+                            <div class="search-box">
+                                <i class="fas fa-magnifying-glass"></i>
+                                <input id="historySearch" type="text" placeholder="Search rider, type, plate, ID..." />
+                            </div>
+                            <select id="filterPriority" class="select">
+                                <option value="">All priority</option>
+                                <option value="HIGH">High</option>
+                                <option value="MEDIUM">Low</option>
+                            </select>
+                            <select id="filterType" class="select">
+                                <option value="">All types</option>
+                                <option value="Motorcycle Crash">Motorcycle Crash</option>
+                                <option value="Motorcycle Fall">Motorcycle Fall</option>
+                                <option value="Stationary Impact">Stationary Impact</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="table-wrap">
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Rider</th>
+                                    <th>Type</th>
+                                    <th>Priority</th>
+                                    <th>Final Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="historyPagination" class="pagination"></div>
+                </section>
+
+                <!-- ============================ RIDER UPDATES ============================ -->
+                <section id="updatesPage" class="page">
+                    <div class="page-head">
+                        <h1>Rider Updates</h1>
+                        <p>Messages from riders post-incident. Urgent messages are highlighted.</p>
+                    </div>
+                    <div id="updatesContainer" class="updates-list"></div>
+                </section>
+
+                <!-- ============================ SETTINGS ============================ -->
+                <section id="settingsPage" class="page">
+                    <div class="page-head">
+                        <h1>Settings</h1>
+                        <p>Personal responder preferences. Agency-wide configuration is managed in the Ridera Admin
+                            Website.</p>
+                    </div>
+
+                    <div class="settings-card">
+                        <div class="setting-row">
+                            <div>
+                                <div class="setting-title">Enable Alert Sound</div>
+                                <div class="setting-desc">Plays a continuous tone while a HIGH priority crash is
+                                    unacknowledged.</div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="toggleSound" checked />
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-row">
+                            <div>
+                                <div class="setting-title">Auto Refresh Interval</div>
+                                <div class="setting-desc">Frequency the dashboard polls for new incidents.</div>
+                            </div>
+                            <select id="refreshInterval" class="select">
+                                <option value="10">10 seconds</option>
+                                <option value="30" selected>30 seconds</option>
+                                <option value="60">60 seconds</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-row">
+                            <div>
+                                <div class="setting-title">Dark Mode</div>
+                                <div class="setting-desc">Recommended for night-shift operations.</div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="toggleDark" checked />
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-row">
+                            <div>
+                                <div class="setting-title">Logout</div>
+                                <div class="setting-desc">End your responder session.</div>
+                            </div>
+                            <button class="btn btn-danger" id="settingsLogout">
+                                <i class="fas fa-right-from-bracket"></i><span>Sign Out</span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- INCIDENT DRAWER -->
+    <!-- ============================================================ -->
+    <div id="drawerOverlay" class="drawer-overlay"></div>
+    <aside id="drawer" class="drawer" role="dialog" aria-label="Incident details">
+        <button id="closeDrawer" class="drawer-close" aria-label="Close"><i class="fas fa-xmark"></i></button>
+        <div id="drawerContent" class="drawer-content"></div>
+    </aside>
+
+    <!-- ============================================================ -->
+    <!-- TOASTS + ALARM -->
+    <!-- ============================================================ -->
+    <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
+    <audio id="alertSound" preload="auto"></audio>
+
+    <!-- ============================================================ -->
+    <!-- SCRIPTS -->
+    <!-- ============================================================ -->
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Firebase SDK (compat version — works without bundler) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+    <script src="js/app.js"></script>
+</body>
+
+</html>

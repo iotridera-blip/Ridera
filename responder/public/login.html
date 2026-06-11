@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ridera Responder — Sign In</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+    <style>
+        :root {
+            --bg: #0a0a0b;
+            --panel: #131316;
+            --panel-2: #17171b;
+            --border: #26262c;
+            --text: #f4f4f6;
+            --text-dim: #b7b7c0;
+            --text-muted: #82828d;
+            --high: #ef4444;
+            --low: #22c55e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            /* Subtle radial glow behind the card */
+            background-image:
+                radial-gradient(600px 400px at 50% 30%, rgba(239, 68, 68, 0.07), transparent 70%);
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 400px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 36px 32px 30px;
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+            animation: cardIn 0.35s ease;
+        }
+
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: none; }
+        }
+
+        .login-brand {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 28px;
+            text-align: center;
+        }
+
+        .login-logo {
+            width: 64px;
+            height: 64px;
+            border-radius: 14px;
+            background: #fafafa;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+        }
+
+        .login-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .login-title {
+            font-size: 19px;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+        }
+
+        .login-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        .field {
+            margin-bottom: 16px;
+        }
+
+        .field label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-dim);
+            margin-bottom: 7px;
+            letter-spacing: 0.02em;
+        }
+
+        .input-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-wrap > i.icon-left {
+            position: absolute;
+            left: 13px;
+            color: var(--text-muted);
+            font-size: 13px;
+            pointer-events: none;
+        }
+
+        .input-wrap input {
+            width: 100%;
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 42px 12px 38px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .input-wrap input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .input-wrap input:focus {
+            outline: none;
+            border-color: #4a4a55;
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
+        }
+
+        .toggle-pass {
+            position: absolute;
+            right: 6px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 8px 10px;
+            font-size: 13px;
+        }
+
+        .toggle-pass:hover {
+            color: var(--text);
+        }
+
+        .login-error {
+            display: none;
+            align-items: center;
+            gap: 9px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fca5a5;
+            border-radius: 10px;
+            padding: 11px 13px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .login-error.show {
+            display: flex;
+            animation: shake 0.3s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .login-btn {
+            width: 100%;
+            background: var(--high);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 13px;
+            font-size: 14px;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            transition: filter 0.15s, opacity 0.15s;
+            margin-top: 4px;
+        }
+
+        .login-btn:hover {
+            filter: brightness(1.08);
+        }
+
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            filter: none;
+        }
+
+        .spinner {
+            width: 15px;
+            height: 15px;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: none;
+        }
+
+        .login-btn.loading .spinner {
+            display: inline-block;
+        }
+
+        .login-btn.loading .btn-icon {
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .login-footer {
+            margin-top: 22px;
+            text-align: center;
+            font-size: 11.5px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .conn-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            margin-top: 10px;
+            font-size: 11.5px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .conn-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--low);
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+        }
+
+        .conn-dot.off {
+            background: var(--high);
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="login-card">
+        <div class="login-brand">
+            <div class="login-logo">
+                <img src="https://raw.githubusercontent.com/iotridera/Ridera/refs/heads/main/images/ridera_dark_icon.png"
+                    alt="Ridera Logo">
+            </div>
+            <div>
+                <div class="login-title">Ridera Responder</div>
+                <div class="login-sub">Emergency Operations</div>
+            </div>
+        </div>
+
+        <div class="login-error" id="loginError">
+            <i class="fas fa-circle-exclamation"></i>
+            <span id="loginErrorText">Invalid username or password.</span>
+        </div>
+
+        <div class="field">
+            <label for="username">Username</label>
+            <div class="input-wrap">
+                <i class="fas fa-user icon-left"></i>
+                <input type="text" id="username" placeholder="Enter your username" autocomplete="username"
+                    autofocus />
+            </div>
+        </div>
+
+        <div class="field">
+            <label for="password">Password</label>
+            <div class="input-wrap">
+                <i class="fas fa-lock icon-left"></i>
+                <input type="password" id="password" placeholder="Enter your password"
+                    autocomplete="current-password" />
+                <button type="button" class="toggle-pass" id="togglePass" aria-label="Show password">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </div>
+        </div>
+
+        <button class="login-btn" id="loginBtn">
+            <span class="spinner"></span>
+            <i class="fas fa-right-to-bracket btn-icon"></i>
+            <span>Sign In</span>
+        </button>
+
+        <div class="conn-status">
+            <span class="conn-dot" id="connDot"></span>
+            <span id="connText">Connecting…</span>
+        </div>
+
+        <div class="login-footer">
+            Authorized emergency responders only.<br>
+            MDRRMO Operations · Ridera v1.0
+        </div>
+    </div>
+
+    <!-- Firebase SDK (compat version — works without bundler) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+    <script>
+        'use strict';
+
+        // ============================================================
+        // FIREBASE CONFIG — same config as app.js
+        // ============================================================
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyDCPjdmPjhjeCWXJnsX_b8HEBlwRrEGZM8",
+            authDomain: "ridera-dg7.firebaseapp.com",
+            databaseURL: "https://ridera-dg7-default-rtdb.firebaseio.com",
+            projectId: "ridera-dg7",
+            storageBucket: "ridera-dg7.firebasestorage.app",
+            messagingSenderId: "139828355676",
+            appId: "1:139828355676:web:fb8de1c261db813130bc99"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(FIREBASE_CONFIG);
+        }
+        const db = firebase.database();
+
+        // Path to authorized responder accounts in RTDB
+        const RESPONDERS_PATH = 'Ridera/authorized_emergency_responder';
+
+        // If already logged in, go straight to the dashboard
+        if (sessionStorage.getItem('ridera_responder')) {
+            window.location.replace('/');
+        }
+
+        // ── Elements ─────────────────────────────────────────────
+        const usernameEl = document.getElementById('username');
+        const passwordEl = document.getElementById('password');
+        const loginBtn = document.getElementById('loginBtn');
+        const errBox = document.getElementById('loginError');
+        const errText = document.getElementById('loginErrorText');
+        const connDot = document.getElementById('connDot');
+        const connText = document.getElementById('connText');
+
+        // ── Connection indicator ─────────────────────────────────
+        db.ref('.info/connected').on('value', snap => {
+            const ok = snap.val() === true;
+            connDot.classList.toggle('off', !ok);
+            connText.textContent = ok ? 'Connected to server' : 'Offline — check your connection';
+        });
+
+        // ── Show/hide password ───────────────────────────────────
+        document.getElementById('togglePass').addEventListener('click', () => {
+            const isPass = passwordEl.type === 'password';
+            passwordEl.type = isPass ? 'text' : 'password';
+            document.querySelector('#togglePass i').className =
+                isPass ? 'fas fa-eye-slash' : 'fas fa-eye';
+        });
+
+        // ── Error helper ─────────────────────────────────────────
+        function showError(msg) {
+            errText.textContent = msg;
+            errBox.classList.remove('show');
+            // Force reflow so the shake animation replays
+            void errBox.offsetWidth;
+            errBox.classList.add('show');
+        }
+
+        function setLoading(loading) {
+            loginBtn.disabled = loading;
+            loginBtn.classList.toggle('loading', loading);
+        }
+
+        // ── Login ────────────────────────────────────────────────
+        async function attemptLogin() {
+            const username = usernameEl.value.trim();
+            const password = passwordEl.value;
+
+            errBox.classList.remove('show');
+
+            if (!username || !password) {
+                showError('Please enter your username and password.');
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                const snapshot = await db.ref(RESPONDERS_PATH).once('value');
+                const data = snapshot.val();
+
+                if (!data) {
+                    showError('No responder accounts found. Contact your administrator.');
+                    setLoading(false);
+                    return;
+                }
+
+                // Find an account whose username matches (case-insensitive)
+                let matchedKey = null;
+                let matched = null;
+
+                Object.entries(data).forEach(([key, acct]) => {
+                    if (
+                        acct &&
+                        typeof acct.username === 'string' &&
+                        acct.username.toLowerCase() === username.toLowerCase()
+                    ) {
+                        matchedKey = key;
+                        matched = acct;
+                    }
+                });
+
+                if (!matched || matched.password !== password) {
+                    showError('Invalid username or password.');
+                    setLoading(false);
+                    return;
+                }
+
+                if (matched.is_active === false) {
+                    showError('This account has been deactivated. Contact your administrator.');
+                    setLoading(false);
+                    return;
+                }
+
+                // ✅ Authenticated — record last_login
+                await db.ref(`${RESPONDERS_PATH}/${matchedKey}`).update({
+                    last_login: Date.now()
+                });
+
+                // Save session (NEVER store the password)
+                const session = {
+                    key: matchedKey,
+                    username: matched.username,
+                    role: matched.role || 'responder',
+                    agency_name: matched.agency_name || 'Ridera Responder',
+                    station_name: matched.station_name || '',
+                    coverage_area: matched.coverage_area || '',
+                    loggedInAt: Date.now()
+                };
+                sessionStorage.setItem('ridera_responder', JSON.stringify(session));
+
+                // Go to the dashboard
+                window.location.replace('/');
+
+            } catch (err) {
+                showError('Login failed: ' + (err.message || 'connection error.'));
+                setLoading(false);
+            }
+        }
+
+        loginBtn.addEventListener('click', attemptLogin);
+
+        // Enter key submits from either field
+        [usernameEl, passwordEl].forEach(el => {
+            el.addEventListener('keydown', e => {
+                if (e.key === 'Enter') attemptLogin();
+            });
+        });
+    </script>
+</body>
+
+</html>
